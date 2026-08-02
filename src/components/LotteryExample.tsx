@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { Users, Coins, Trophy, Landmark, ArrowRight } from "lucide-react";
@@ -77,7 +77,7 @@ export default function LotteryExample() {
               <div className="w-10 h-10 rounded-xl bg-pi-purple-500/20 flex items-center justify-center">
                 <Trophy className="w-5 h-5 text-pi-purple-300" />
               </div>
-              <h3 className="font-semibold text-lg">9 Winners — 90% of Pool</h3>
+              <h3 className="font-semibold text-lg">9 Winners â€” 90% of Pool</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {winners.map((winner, index) => (
@@ -108,7 +108,7 @@ export default function LotteryExample() {
               <div className="w-10 h-10 rounded-xl bg-pi-gold-500/20 flex items-center justify-center">
                 <Landmark className="w-5 h-5 text-pi-gold-300" />
               </div>
-              <h3 className="font-semibold text-lg">Treasury — 10% of Pool</h3>
+              <h3 className="font-semibold text-lg">Treasury â€” 10% of Pool</h3>
             </div>
 
             <div className="glass-card-hover p-6 text-center mb-6">

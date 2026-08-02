@@ -3,8 +3,8 @@ import Hero from "@/components/Hero";
 import Dapp from "@/components/Dapp";
 import LiveStats from "@/components/LiveStats";
 import Community from "@/components/Community";
-import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export default function Home() {
   return (
@@ -14,8 +14,8 @@ export default function Home() {
       <Dapp />
       <LiveStats />
       <Community />
-      <Newsletter />
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

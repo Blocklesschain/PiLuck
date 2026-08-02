@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import {
@@ -46,7 +46,7 @@ export default function Roadmap() {
             Our <span className="text-gradient-purple">Roadmap</span>
           </h2>
           <p className="text-lg text-white/70">
-            The journey ahead — from launch to a full community ecosystem.
+            The journey ahead â€” from launch to a full community ecosystem.
           </p>
         </motion.div>
 

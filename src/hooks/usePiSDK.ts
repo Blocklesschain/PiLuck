@@ -17,8 +17,8 @@ import type {
   PiScope,
 } from "@/lib/pi-sdk";
 
-// PiLucky app configuration
-const PI_APP_ID = "pilucky-app"; // Replace with your actual Pi App ID from the Pi Developer Portal
+// PiLuck app configuration
+const PI_APP_ID = "PiLuck-app"; // Replace with your actual Pi App ID from the Pi Developer Portal
 const PI_SCOPE: PiScope[] = ["username", "payments"];
 
 export type PiConnectionState =
@@ -48,7 +48,7 @@ export function usePiSDK() {
   useEffect(() => {
     let mounted = true;
     let retries = 0;
-    const maxRetries = 20; // Wait up to 10 seconds for SDK to load
+    const maxRetries = 40; // Wait up to 20 seconds for SDK to load
 
     const initPi = () => {
       if (typeof window === "undefined") return;
@@ -82,19 +82,52 @@ export function usePiSDK() {
           setPiReady(true);
         }
       } catch (err) {
-        console.error("Pi SDK init error:", err);
-        if (mounted) {
-          setError("Failed to initialize Pi SDK. Please refresh the page.");
-          setConnectionState("error");
+        // SDK might already be initialized - that is OK
+        if (err instanceof Error && err.message.includes("already")) {
+          if (mounted) setPiReady(true);
+        } else {
+          console.error("Pi SDK init error:", err);
+          if (mounted) {
+            setError("Failed to initialize Pi SDK. Please refresh the page.");
+            setConnectionState("error");
+          }
         }
       }
     };
 
+    // Start checking immediately
     initPi();
 
     return () => {
       mounted = false;
     };
+  }, []);
+
+  // Manual retry function
+  const retryInit = useCallback(() => {
+    setError(null);
+    setConnectionState("disconnected");
+    setPiReady(false);
+    setPiBrowser(false);
+
+    if (typeof window !== "undefined" && window.Pi) {
+      try {
+        window.Pi.init({ version: "2.0", sandbox: true });
+        setPiBrowser(true);
+        setPiReady(true);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("already")) {
+          setPiBrowser(true);
+          setPiReady(true);
+        } else {
+          setError("Failed to initialize Pi SDK. Please refresh the page.");
+          setConnectionState("error");
+        }
+      }
+    } else {
+      setError("Pi SDK not available. Please open this app inside the Pi Browser.");
+      setConnectionState("error");
+    }
   }, []);
 
   // Authenticate with Pi Network
@@ -199,7 +232,7 @@ export function usePiSDK() {
   const shareResult = useCallback(
     (title: string, message: string, url?: string) => {
       if (!piReady || !window.Pi) return;
-      window.Pi.openShareDialog(title, message, url);
+      window.Pi!.openShareDialog(title, message, url);
     },
     [piReady]
   );
@@ -215,5 +248,6 @@ export function usePiSDK() {
     authenticate,
     createPayment,
     shareResult,
+    retryInit,
   };
 }

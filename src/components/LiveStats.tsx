@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
@@ -6,11 +6,7 @@ import {
   Coins,
   Timer,
   Users,
-  Ticket,
   Trophy,
-  Landmark,
-  Heart,
-  Eye,
   Award,
   Sparkles,
 } from "lucide-react";
@@ -29,11 +25,7 @@ const stats: Stat[] = [
   { icon: Timer, label: "Current Round", value: 42, prefix: "#" },
   { icon: Timer, label: "Hours Remaining", value: 5, suffix: "h" },
   { icon: Users, label: "Participants", value: 10000 },
-  { icon: Ticket, label: "Tickets Sold", value: 10000 },
   { icon: Trophy, label: "Total Pi Distributed", value: 250000, suffix: " Pi" },
-  { icon: Landmark, label: "Treasury Balance", value: 25000, suffix: " Pi" },
-  { icon: Heart, label: "Community Members", value: 50000 },
-  { icon: Eye, label: "Website Visitors", value: 120000 },
   { icon: Award, label: "Total Winners", value: 378 },
 ];
 
@@ -99,7 +91,7 @@ export default function LiveStats() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}

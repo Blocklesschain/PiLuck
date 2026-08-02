@@ -1,11 +1,12 @@
-import Navbar from "@/components/Navbar";
+﻿import Navbar from "@/components/Navbar";
 import HowItWorks from "@/components/HowItWorks";
 import LotteryExample from "@/components/LotteryExample";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata = {
-  title: "How It Works — PiLucky",
-  description: "Step-by-step guide to the PiLucky lottery process.",
+  title: "How It Works — PiLuck",
+  description: "Step-by-step guide to the PiLuck lottery process.",
 };
 
 export default function HowItWorksPage() {
@@ -17,6 +18,7 @@ export default function HowItWorksPage() {
         <LotteryExample />
       </div>
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

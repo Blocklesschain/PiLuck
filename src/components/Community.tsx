@@ -1,26 +1,18 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import {
-  MessageCircle,
   Send,
   Twitter,
-  Github,
-  PenTool,
-  Mail,
+  Youtube,
   Users,
-  Bell,
 } from "lucide-react";
 
 const communityLinks = [
-  { icon: MessageCircle, label: "Discord", href: "#", color: "text-[#5865F2]" },
   { icon: Send, label: "Telegram", href: "#", color: "text-[#229ED9]" },
   { icon: Twitter, label: "X (Twitter)", href: "#", color: "text-white" },
-  { icon: Github, label: "GitHub", href: "#", color: "text-white" },
-  { icon: PenTool, label: "Medium", href: "#", color: "text-white" },
-  { icon: Mail, label: "Email", href: "mailto:hello@piLuck.io", color: "text-pi-gold-400" },
+  { icon: Youtube, label: "YouTube", href: "#", color: "text-[#FF0000]" },
   { icon: Users, label: "Community Updates", href: "#", color: "text-pi-purple-300" },
-  { icon: Bell, label: "Newsletter", href: "#newsletter", color: "text-pi-purple-300" },
 ];
 
 export default function Community() {

@@ -1,10 +1,11 @@
-import Navbar from "@/components/Navbar";
+﻿import Navbar from "@/components/Navbar";
 import Roadmap from "@/components/Roadmap";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata = {
-  title: "Roadmap — PiLucky",
-  description: "PiLucky development roadmap and future phases.",
+  title: "Roadmap — PiLuck",
+  description: "PiLuck development roadmap and future phases.",
 };
 
 export default function RoadmapPage() {
@@ -15,6 +16,7 @@ export default function RoadmapPage() {
         <Roadmap />
       </div>
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

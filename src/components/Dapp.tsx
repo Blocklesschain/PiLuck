@@ -17,7 +17,7 @@ import {
   ExternalLink,
   Info,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePiSDK } from "@/hooks/usePiSDK";
 
 type TicketState = "idle" | "purchasing" | "confirmed" | "error";
@@ -33,7 +33,17 @@ export default function Dapp() {
     authenticate,
     createPayment,
     shareResult,
+    retryInit,
   } = usePiSDK();
+
+  const [sdkLoading, setSdkLoading] = useState(true);
+
+  // Track SDK loading state
+  useEffect(() => {
+    if (piReady || piBrowser || piError) {
+      setSdkLoading(false);
+    }
+  }, [piReady, piBrowser, piError]);
 
   const [ticketState, setTicketState] = useState<TicketState>("idle");
   const [paymentTxid, setPaymentTxid] = useState<string | null>(null);
@@ -47,7 +57,7 @@ export default function Dapp() {
     if (connectionState !== "connected") return;
 
     setTicketState("purchasing");
-    const result = await createPayment(1, "PiLucky Lottery Ticket - 1 Pi entry");
+    const result = await createPayment(1, "PiLuck Lottery Ticket - 1 Pi entry");
 
     if (result.success) {
       setTicketState("confirmed");
@@ -60,9 +70,9 @@ export default function Dapp() {
 
   const handleShare = () => {
     shareResult(
-      "I just entered the PiLucky Lottery!",
-      "One Pi. One Ticket. Equal Opportunity. Join me on PiLucky!",
-      "https://pilucky.app"
+      "I just entered the PiLuck Lottery!",
+      "One Pi. One Ticket. Equal Opportunity. Join me on PiLuck!",
+      "https://PiLuck.app"
     );
   };
 
@@ -371,7 +381,7 @@ export default function Dapp() {
                 )}
 
                 <p className="text-center text-xs text-white/40">
-                  By entering you agree to the PiLucky fair play rules. 1 ticket
+                  By entering you agree to the PiLuck fair play rules. 1 ticket
                   per wallet per round. Payments processed on Pi Testnet.
                 </p>
               </div>

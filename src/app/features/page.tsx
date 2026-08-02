@@ -1,11 +1,12 @@
-import Navbar from "@/components/Navbar";
+﻿import Navbar from "@/components/Navbar";
 import Features from "@/components/Features";
 import CommunityEngagement from "@/components/CommunityEngagement";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata = {
-  title: "Features — PiLucky",
-  description: "Explore all features and security measures of PiLucky.",
+  title: "Features — PiLuck",
+  description: "Explore all features and security measures of PiLuck.",
 };
 
 export default function FeaturesPage() {
@@ -17,6 +18,7 @@ export default function FeaturesPage() {
         <CommunityEngagement />
       </div>
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

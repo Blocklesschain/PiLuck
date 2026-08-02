@@ -1,11 +1,12 @@
-import Navbar from "@/components/Navbar";
+﻿import Navbar from "@/components/Navbar";
 import About from "@/components/About";
 import CorePrinciples from "@/components/CorePrinciples";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata = {
-  title: "About — PiLucky",
-  description: "Learn about PiLucky's mission, values, and core principles.",
+  title: "About — PiLuck",
+  description: "Learn about PiLuck's mission, values, and core principles.",
 };
 
 export default function AboutPage() {
@@ -17,6 +18,7 @@ export default function AboutPage() {
         <CorePrinciples />
       </div>
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

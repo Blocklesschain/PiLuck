@@ -1,10 +1,11 @@
 ﻿import Navbar from "@/components/Navbar";
 import FAQ from "@/components/FAQ";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata = {
-  title: "FAQ — PiLucky",
-  description: "Frequently asked questions about PiLucky.",
+  title: "FAQ — PiLuck",
+  description: "Frequently asked questions about PiLuck.",
 };
 
 export default function FAQPage() {
@@ -15,6 +16,7 @@ export default function FAQPage() {
         <FAQ />
       </div>
       <Footer />
+      <ScrollToTop />
     </main>
   );
 }

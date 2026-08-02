@@ -12,6 +12,7 @@ const navLinks = [
   { label: "Features", href: "/features" },
   { label: "Roadmap", href: "/roadmap" },
   { label: "FAQ", href: "/faq" },
+  { label: "Documentation", href: "/docs" },
 ];
 
 export default function Navbar() {
@@ -43,7 +44,7 @@ export default function Navbar() {
             </div>
           </div>
           <span className="text-xl font-bold tracking-tight">
-            Pi<span className="text-gradient">Lucky</span>
+            Pi<span className="text-gradient">Luck</span>
           </span>
         </Link>
 

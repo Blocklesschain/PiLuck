@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { ArrowRight, FileText, Ticket, Users, Coins, Sparkles, Shield, Timer, Wallet } from "lucide-react";

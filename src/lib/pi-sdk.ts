@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Pi Network SDK Type Declarations
  * Based on the Pi Network Frontend SDK (pi-sdk.js)
  * @see https://sdk.pinetwork.com/pi-sdk.js
