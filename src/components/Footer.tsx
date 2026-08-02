@@ -1,8 +1,7 @@
 ﻿"use client";
 
-import { Sparkles } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import SiteLogo from "./SiteLogo";
 
 const footerLinks = {
   about: [
@@ -28,8 +27,6 @@ const footerLinks = {
 };
 
 export default function Footer() {
-  const pathname = usePathname();
-
   const renderLinks = (
     links: typeof footerLinks.about,
     activeSet: string[]
@@ -58,17 +55,10 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pi-purple-500 to-pi-purple-700 flex items-center justify-center glow-purple">
-                <Sparkles className="w-5 h-5 text-pi-gold-300" />
-              </div>
-              <span className="text-xl font-bold tracking-tight">
-                Pi<span className="text-gradient">Luck</span>
-              </span>
-            </Link>
+            <SiteLogo className="mb-4" />
             <p className="text-sm text-white/50 leading-relaxed">
-              The Community Luck Platform for Pioneers. One Pi. One Ticket.
-              Equal Opportunity.
+              The Community Luck Platform for Pioneers. One base ticket per wallet,
+              plus free streak credits. Equal Opportunity.
             </p>
           </div>
 

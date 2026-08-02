@@ -40,9 +40,9 @@ export default function WhitepaperPage() {
               <li>4. How It Works</li>
               <li>5. Lottery Mechanism</li>
               <li>6. Prize Distribution</li>
-              <li>7. Pi Testnet Integration</li>
+              <li>7. Pi Browser and Testnet Integration</li>
               <li>8. Security Model</li>
-              <li>9. Credits System</li>
+              <li>9. Credits and Streak Rewards</li>
               <li>10. Token Economics</li>
               <li>11. Roadmap</li>
               <li>12. Disclaimer</li>
@@ -54,9 +54,9 @@ export default function WhitepaperPage() {
             <h2 className="text-xl font-semibold text-pi-gold-400">1. Abstract</h2>
             <p className="text-white/70 leading-relaxed">
               PiLuck is a transparent, community-first lucky draw platform built for the Pi Network
-              ecosystem. It operates on a simple principle: one Pi, one ticket, equal opportunity.
-              The platform leverages Pi Testnet for all blockchain transactions, ensuring
-              transparency and fairness.
+              ecosystem. It operates on a simple principle: one Pi base ticket, equal opportunity.
+              The platform currently leverages Pi Browser sandbox mode for development and testing,
+              ensuring users can validate wallet connection and payment flows before mainnet launch.
             </p>
           </div>
 
@@ -74,7 +74,7 @@ export default function WhitepaperPage() {
             <h2 className="text-xl font-semibold text-pi-gold-400">3. Core Principles</h2>
             <ul className="list-disc list-inside space-y-2 text-white/70">
               <li><strong>Equal Opportunity:</strong> Every Pioneer has the same odds regardless of stake.</li>
-              <li><strong>One Wallet, One Ticket:</strong> Prevents whale dominance and ensures fairness.</li>
+              <li><strong>One Base Ticket Per Wallet:</strong> Keeps the default entry equal while earned Credits add extra participation.</li>
               <li><strong>Transparent Draw:</strong> All draws use verifiable on-chain randomness.</li>
               <li><strong>Community First:</strong> The platform serves the Pi community.</li>
               <li><strong>Treasury Growth:</strong> 10% of each pool funds platform development.</li>
@@ -86,7 +86,7 @@ export default function WhitepaperPage() {
             <h2 className="text-xl font-semibold text-pi-gold-400">4. How It Works</h2>
             <ol className="list-decimal list-inside space-y-2 text-white/70">
               <li><strong>Connect Wallet:</strong> Authenticate with your Pi Network wallet via the Pi Browser.</li>
-              <li><strong>Buy Ticket:</strong> Purchase exactly one ticket for 1 Pi per round.</li>
+              <li><strong>Buy Base Ticket:</strong> Purchase exactly one base ticket for 1 Pi per round.</li>
               <li><strong>Enter Round:</strong> Your ticket enters the current 12-hour lottery round.</li>
               <li><strong>Round Closes:</strong> When the countdown reaches zero, the round closes automatically.</li>
               <li><strong>9 Winners Selected:</strong> The smart contract randomly selects 9 winning wallets.</li>
@@ -120,17 +120,16 @@ export default function WhitepaperPage() {
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-pi-gold-400">7. Pi Testnet Integration</h2>
+            <h2 className="text-xl font-semibold text-pi-gold-400">7. Pi Browser and Testnet Integration</h2>
             <p className="text-white/70 leading-relaxed">
-              PiLuck operates on the Pi Network Testnet (sandbox mode). All transactions — wallet
-              connection, authentication, and payments — are processed through the official Pi SDK
-              (https://sdk.pinetwork.com/pi-sdk.js). Users must access PiLuck through the Pi Browser
-              app for full functionality.
+              PiLuck is designed to run inside the Pi Browser. The official Pi SDK
+              (https://sdk.pinetwork.com/pi-sdk.js) is loaded at runtime, and the app initializes
+              in sandbox mode so wallet connection and payment flows can be tested safely during development.
             </p>
             <p className="text-white/70 leading-relaxed">
               The Pi SDK handles authentication (username + payment scopes) and payment creation
-              via the Pi blockchain. Payment callbacks handle server approval and completion
-              states, ensuring secure and transparent transactions.
+              through the Pi Browser environment. Once the app is promoted beyond sandbox testing,
+              the same flow can be connected to the production Pi deployment configuration.
             </p>
           </div>
 
@@ -140,28 +139,32 @@ export default function WhitepaperPage() {
               <li>Provably fair: All draws are on-chain and verifiable</li>
               <li>Smart contract audited: Core logic deployed on Pi Testnet</li>
               <li>No private keys stored: Users maintain full wallet control</li>
-              <li>One ticket per wallet: Prevents sybil attacks</li>
+              <li>One base ticket per wallet: Prevents sybil attacks</li>
               <li>Bot detection: Automated entries are monitored and blocked</li>
             </ul>
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-pi-gold-400">9. Credits System</h2>
+            <h2 className="text-xl font-semibold text-pi-gold-400">9. Credits and Streak Rewards</h2>
             <p className="text-white/70 leading-relaxed">
-              Free Users get 1 free entry every 24 hours. Credits (1 Credit = 1 Pi) allow
-              additional entries. Credits are a complimentary gift with no cash value and are
-              non-transferable. PiLuck Labs reserves the right to modify the Credits system at
-              any time.
+              Credits are a free engagement reward system and have no monetary value. They cannot
+              be bought. A user earns streak credit whenever they join a round on a day, and the
+              following milestones unlock free Credits: 7 days = 1, 15 days = 3, 30 days = 7,
+              60 days = 10, 90 days = 25, 180 days = 50, and 365 days = 100.
+            </p>
+            <p className="text-white/70 leading-relaxed">
+              Credits may be used for extra ticket entries subject to a 1-hour cooldown per ticket.
+              They are non-transferable and exist purely to increase participation opportunities.
             </p>
           </div>
 
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-pi-gold-400">10. Token Economics</h2>
             <p className="text-white/70 leading-relaxed">
-              Entry fee: 1 Pi per ticket
+              Entry fee: 1 Pi per base ticket
               Winners: 9 (each receives 10% of pool)
               Treasury: 10% of each round pool
-              Treasury usage: Platform development, security, community rewards
+              Treasury usage: Platform development, security, and community rewards
             </p>
           </div>
 

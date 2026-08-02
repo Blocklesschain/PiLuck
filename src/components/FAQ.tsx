@@ -8,17 +8,22 @@ const faqs = [
   {
     question: "How much is a ticket?",
     answer:
-      "Each ticket costs exactly 1 Pi. This simple, fixed price ensures that everyone can participate equally, regardless of their wallet size.",
+      "The base ticket costs exactly 1 Pi. Free Credits from streak milestones can unlock extra entries, but Credits cannot be bought and have no monetary value.",
   },
   {
     question: "Can I buy multiple tickets?",
     answer:
-      "No. Only one ticket per wallet is allowed for each lottery round. This rule ensures fairness and prevents large holders from dominating the draw.",
+      "You can enter one base ticket per wallet per round. Additional entries come from free Credits earned through streak milestones, and each extra ticket follows the 1-hour cooldown.",
+  },
+  {
+    question: "How do Credits work?",
+    answer:
+      "Credits are free rewards earned only through streak milestones: 7 days = 1, 15 days = 3, 30 days = 7, 60 days = 10, 90 days = 25, 180 days = 50, and 365 days = 100. Users cannot buy Credits.",
   },
   {
     question: "Why only one ticket per wallet?",
     answer:
-      "The one-ticket-per-wallet rule is at the core of PiLuck's fairness model. It ensures that every participant has exactly the same chance of winning, regardless of how much Pi they hold. This prevents whales from dominating the lottery and keeps the platform truly community-driven.",
+      "The base one-ticket-per-wallet rule is at the core of PiLuck's fairness model. It keeps the default entry equal for everyone while Credits add a separate, earned-only path for extra participation.",
   },
   {
     question: "How are winners selected?",

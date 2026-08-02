@@ -14,9 +14,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "PiLuck â€” The Community Luck Platform for Pioneers",
+  title: "PiLuck — The Community Luck Platform for Pioneers",
   description:
-    "PiLuck is a transparent, fair, community-first Luck draw platform built for the Pi Network ecosystem. One Pi. One Ticket. Equal Opportunity.",
+    "PiLuck is a transparent, fair, community-first Luck draw platform built for the Pi Network ecosystem. One base ticket per wallet, plus free streak credits. Equal Opportunity.",
   keywords: [
     "Pi Network",
     "PiLuck",
@@ -28,17 +28,21 @@ export const metadata: Metadata = {
     "Pi ecosystem",
   ],
   openGraph: {
-    title: "PiLuck â€” The Community Luck Platform for Pioneers",
+    title: "PiLuck — The Community Luck Platform for Pioneers",
     description:
-      "One Pi. One Ticket. Equal Opportunity. A transparent community Luck draw platform for Pi Network users.",
+      "One base ticket per wallet, free streak credits, and equal opportunity for Pi Network users.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PiLuck â€” The Community Luck Platform for Pioneers",
+    title: "PiLuck — The Community Luck Platform for Pioneers",
     description:
-      "One Pi. One Ticket. Equal Opportunity. A transparent community Luck draw platform for Pi Network users.",
+      "One base ticket per wallet, free streak credits, and equal opportunity for Pi Network users.",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
   },
   robots: {
     index: true,
@@ -56,7 +60,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} font-sans bg-[#0a0a0f] text-white antialiased`}
       >
-        {/* Pi Network SDK â€” loaded from official CDN */}
+        {/* Pi Network SDK — loaded from the official CDN */}
         <Script
           src="https://sdk.pinetwork.com/pi-sdk.js"
           strategy="afterInteractive"

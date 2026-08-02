@@ -1,10 +1,11 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, Sparkles, Wallet } from "lucide-react";
+import { Menu, X, Wallet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SiteLogo from "./SiteLogo";
 
 const navLinks = [
   { label: "About", href: "/about" },
@@ -37,16 +38,7 @@ export default function Navbar() {
       }`}
     >
       <nav className="container-max flex items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pi-purple-500 to-pi-purple-700 flex items-center justify-center glow-purple group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5 text-pi-gold-300" />
-            </div>
-          </div>
-          <span className="text-xl font-bold tracking-tight">
-            Pi<span className="text-gradient">Luck</span>
-          </span>
-        </Link>
+        <SiteLogo />
 
         <div className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => (

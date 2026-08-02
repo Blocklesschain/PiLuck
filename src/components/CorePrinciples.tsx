@@ -18,8 +18,8 @@ const principles = [
   },
   {
     icon: UserCheck,
-    title: "One Wallet One Ticket",
-    description: "Fair participation. No whales. No dominance.",
+    title: "One Base Ticket Per Wallet",
+    description: "Everyone gets the same default entry, while free Credits can unlock extra entries through streaks.",
   },
   {
     icon: Eye,

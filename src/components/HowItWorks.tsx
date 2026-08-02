@@ -21,7 +21,7 @@ const steps = [
   {
     icon: Ticket,
     title: "Purchase One Ticket",
-    description: "Buy exactly one ticket for 1 Pi. Only one ticket per wallet per round.",
+    description: "Buy exactly one base ticket for 1 Pi. Credits earned from streak milestones can add extra entries after the cooldown.",
   },
   {
     icon: Timer,
@@ -114,6 +114,22 @@ export default function HowItWorks() {
                 </div>
               </motion.div>
             ))}
+          </div>
+
+          <div className="mt-12 glass-card p-6 md:p-8 border border-pi-gold-500/20">
+            <h3 className="text-xl font-semibold mb-3 text-pi-gold-400">Credits and streak rewards</h3>
+            <p className="text-sm text-white/70 leading-relaxed mb-4">
+              Joining a round on a given day counts toward your streak. Credits are free, have no monetary value, cannot be bought, and unlock extra tickets with a 1-hour cooldown per ticket.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-white/70">
+              <div className="glass p-4">7 days streak = 1 Credit</div>
+              <div className="glass p-4">15 days streak = 3 Credits</div>
+              <div className="glass p-4">30 days streak = 7 Credits</div>
+              <div className="glass p-4">60 days streak = 10 Credits</div>
+              <div className="glass p-4">90 days streak = 25 Credits</div>
+              <div className="glass p-4">180 days streak = 50 Credits</div>
+              <div className="glass p-4">365 days streak = 100 Credits</div>
+            </div>
           </div>
         </div>
       </div>

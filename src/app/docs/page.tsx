@@ -30,7 +30,7 @@ const steps = [
   {
     icon: <Ticket className="w-6 h-6 text-pi-purple-400" />,
     title: "Enter the Draw",
-    desc: "Each entry costs exactly 1 Pi on the Pi Testnet. Purchase one ticket per wallet per 12-hour round. Your transaction is recorded on-chain.",
+    desc: "Each base entry costs exactly 1 Pi in Pi Browser sandbox mode. Purchase one base ticket per wallet per 12-hour round, then use free Credits for extra entries after the cooldown.",
   },
   {
     icon: <Trophy className="w-6 h-6 text-pi-gold-400" />,
@@ -58,7 +58,7 @@ export default function DocsPage() {
 
         <p className="text-lg text-white/70 text-center max-w-3xl mx-auto mb-16">
           Your complete guide to using and building on the PiLuck Lucky Draw
-          platform. From connecting your first wallet to integrating the Pi SDK.
+          platform. From connecting your first wallet to understanding Credits, streaks, and Pi SDK integration.
         </p>
 
         {/* Table of Contents */}
@@ -143,12 +143,12 @@ export default function DocsPage() {
             <div className="glass-card p-6 space-y-4 text-white/80 leading-relaxed">
               <p>
                 PiLuck is a transparent, community-first lucky draw built for the
-                Pi Network ecosystem. It runs entirely on the Pi Testnet
-                (sandbox mode) so all entries and payouts are verifiable on-chain.
+                Pi Network ecosystem. It currently runs in Pi Browser sandbox mode
+                so wallet access and payments can be tested safely before mainnet.
               </p>
               <ul className="list-disc list-inside space-y-1">
                 <li>
-                  <strong>Entry fee:</strong> 1 Pi per ticket, per wallet, per
+                  <strong>Base entry fee:</strong> 1 Pi per ticket, per wallet, per
                   round.
                 </li>
                 <li>
@@ -163,12 +163,15 @@ export default function DocsPage() {
                   <strong>Treasury:</strong> 10% of each round funds platform
                   development and security.
                 </li>
+                <li>
+                  <strong>Credits:</strong> Free, non-purchasable bonus entries earned through daily streak milestones.
+                </li>
               </ul>
               <div className="flex items-center gap-3 pt-2">
                 <Info className="w-5 h-5 text-yellow-400" />
                 <span className="text-sm">
                   You <strong>must</strong> use the Pi Browser for full dApp
-                  functionality (wallet connect + payments).
+                  functionality (wallet connect + payments), and the app must be registered in the Pi Developer Portal.
                 </span>
               </div>
             </div>
@@ -299,7 +302,7 @@ export default function DocsPage() {
               <p>
                 The <strong>Treasury (10%)</strong> funds ongoing platform
                 maintenance, security, and community initiatives. Treasury
-                balances are publicly transparent on the Pi Testnet.
+                balances are publicly transparent in the app dashboard.
               </p>
             </div>
           </section>
@@ -342,9 +345,7 @@ export default function DocsPage() {
                     Payment failed
                   </p>
                   <p className="text-sm text-white/70">
-                    Ensure you have at least 1 Testnet Pi in your wallet. Check
-                    your balance in the Pi Browser wallet. If the issue persists,
-                    try again during off-peak hours.
+                    Ensure you have at least 1 Pi in your Pi Browser wallet sandbox balance. If the issue persists, refresh the page, re-open the app in Pi Browser, and confirm the app is approved in your Pi ecosystem setup.
                   </p>
                 </div>
               </div>
@@ -355,8 +356,8 @@ export default function DocsPage() {
                     Already purchased — cannot buy again
                   </p>
                   <p className="text-sm text-white/70">
-                    One ticket per wallet per round is enforced on-chain. You can
-                    enter the next round which begins 12 hours later.
+                    One base ticket per wallet per round is enforced on-chain. You can
+                    enter the next round which begins 12 hours later, or use earned Credits after the cooldown.
                   </p>
                 </div>
               </div>
@@ -377,7 +378,7 @@ export default function DocsPage() {
                 <div className="glass p-4">
                   <code className="text-pi-purple-300">Pi.init()</code>
                   <p className="text-xs text-white/60 mt-1">
-                    Initializes the SDK in sandbox/testnet mode.
+                    Initializes the SDK in Pi Browser sandbox mode.
                   </p>
                 </div>
                 <div className="glass p-4">
@@ -393,7 +394,7 @@ export default function DocsPage() {
                     Pi.createPayment(paymentData, callbacks)
                   </code>
                   <p className="text-xs text-white/60 mt-1">
-                    Creates a 1 Pi payment for a lottery ticket on Testnet.
+                    Creates a 1 Pi payment for a lottery ticket in sandbox mode.
                   </p>
                 </div>
                 <div className="glass p-4">
@@ -430,8 +431,7 @@ export default function DocsPage() {
                   Do I need real Pi to play?
                 </p>
                 <p className="text-sm text-white/70 mt-1">
-                  During testnet phase, you use Testnet Pi (sandbox mode). No real
-                  monetized Pi is required or charged.
+                  During sandbox development, you use Pi Browser test balance. No real monetized Pi is required or charged.
                 </p>
               </div>
               <div>
@@ -439,8 +439,7 @@ export default function DocsPage() {
                   Can I buy multiple tickets?
                 </p>
                 <p className="text-sm text-white/70 mt-1">
-                  No — one ticket per wallet per round. This ensures fair odds for
-                  all Pioneers.
+                  The base rule is one ticket per wallet per round. Additional entries can only come from free Credits earned through streaks.
                 </p>
               </div>
               <div>

@@ -71,7 +71,7 @@ export default function Dapp() {
   const handleShare = () => {
     shareResult(
       "I just entered the PiLuck Lottery!",
-      "One Pi. One Ticket. Equal Opportunity. Join me on PiLuck!",
+      "One base ticket per wallet, free streak credits, and equal opportunity. Join me on PiLuck!",
       "https://PiLuck.app"
     );
   };
@@ -97,15 +97,15 @@ export default function Dapp() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
             <span className={`w-2 h-2 rounded-full ${piReady ? "bg-green-400" : "bg-yellow-400"} animate-pulse`} />
             <span className="text-sm text-white/80">
-              {piReady ? "Pi Testnet - Sandbox Mode Active" : piBrowser ? "Initializing Pi SDK..." : "Waiting for Pi Browser"}
+              {piReady ? "Pi sandbox mode active" : piBrowser ? "Initializing Pi SDK..." : "Waiting for Pi Browser"}
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
             Enter the <span className="text-gradient-gold glow-text-gold">Lucky Draw</span>
           </h2>
           <p className="text-lg text-white/70">
-            Connect your Pi wallet and secure your ticket in seconds. One Pi.
-            One Ticket. Equal Opportunity.
+            Connect your Pi wallet, claim your base ticket, and use free streak
+            credits for extra entries. Equal Opportunity.
           </p>
         </motion.div>
 
@@ -151,7 +151,7 @@ export default function Dapp() {
               <div className="flex-1">
                 <p className="font-semibold">Buy 1 Pi Ticket</p>
                 <p className="text-sm text-white/60">
-                  {ticketState === "confirmed" ? "Ticket confirmed on-chain" : "One ticket per wallet - 1 Pi"}
+                  {ticketState === "confirmed" ? "Ticket confirmed on-chain" : "One base ticket per wallet - 1 Pi"}
                 </p>
               </div>
             </div>
@@ -203,7 +203,7 @@ export default function Dapp() {
                 <p className="text-5xl md:text-6xl font-bold text-gradient-gold glow-text-gold">
                   1 Pi
                 </p>
-                <p className="text-xs text-white/40 mt-2">Per Ticket - Pi Testnet</p>
+                <p className="text-xs text-white/40 mt-2">Base ticket in Pi Browser sandbox mode</p>
               </div>
 
               {/* CTA Area */}
@@ -381,8 +381,9 @@ export default function Dapp() {
                 )}
 
                 <p className="text-center text-xs text-white/40">
-                  By entering you agree to the PiLuck fair play rules. 1 ticket
-                  per wallet per round. Payments processed on Pi Testnet.
+                  By entering you agree to the PiLuck fair play rules. 1 base
+                  ticket per wallet per round, with free credits unlocked by
+                  streak milestones. Payments are processed in Pi Browser sandbox mode.
                 </p>
               </div>
             </div>

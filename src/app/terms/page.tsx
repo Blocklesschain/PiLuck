@@ -54,7 +54,7 @@ export default function TermsPage() {
               Rewards, prize pools, and distributions are subject to smart contract rules and
               available funds. PiLuck does not guarantee profits, returns, or winnings to any
               participant. All rewards are distributed according to the transparent smart
-              contract deployed on the Pi Testnet.
+              contract and the configured Pi Browser sandbox flow.
             </p>
           </div>
 
@@ -118,14 +118,14 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-pi-gold-400">11. Free Participation</h2>
             <p className="text-white/70 leading-relaxed">
               <strong>Pi Free Giveaway - Open to Everyone!</strong> Everyone is welcome to
-              participate. No purchase is required.
+              participate. The base entry is 1 Pi, and free Credits can be earned through daily streaks.
             </p>
             <p className="text-white/70 leading-relaxed">
-              <strong>Free Users:</strong> 1 free entry every 24 hours.
+              <strong>Free Users:</strong> One base entry per wallet per round, with Credits unlocking extra entries after the cooldown.
             </p>
             <p className="text-white/70 leading-relaxed">
               <strong>Credits:</strong> Users can use their complimentary Credits to
-              participate multiple times, increasing their opportunities to win. 1 Credit = 1 Pi.
+              participate multiple times, increasing their opportunities to win. Credits are earned only through streak milestones and have no cash value.
             </p>
           </div>
 
@@ -134,9 +134,9 @@ export default function TermsPage() {
             <p className="text-white/70 leading-relaxed">
               Credits are provided as a complimentary gift, have no cash value, and are
               non-transferable. Lost, expired, or technically affected Credits cannot be
-              restored or recovered. PiLuck Labs reserves the right to modify, suspend,
-              replace, discontinue, or change the Credits system—including their usage,
-              validity, eligibility, and rewards—at any time without prior notice.
+              restored or recovered. Credits may only be used after the applicable cooldown.
+              PiLuck Labs reserves the right to modify, suspend, replace, discontinue, or change
+              the Credits system—including their usage, validity, eligibility, and rewards—at any time without prior notice.
             </p>
           </div>
 

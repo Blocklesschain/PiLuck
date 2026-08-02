@@ -50,7 +50,7 @@ const mainFeatures = [
   {
     icon: UserCheck,
     title: "Fair Participation",
-    description: "One wallet. One ticket.",
+    description: "One wallet. One base ticket, with free streak credits for extra entries.",
   },
   {
     icon: Landmark,

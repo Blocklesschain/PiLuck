@@ -33,15 +33,13 @@ export default function Hero() {
               transition={{ duration: 0.7, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight leading-tight mb-6"
             >
-              One Pi. One Ticket.{" "}
-              <span className="text-gradient glow-text-purple">Equal Opportunity.</span>
+              One Pi. One Base Ticket. <span className="text-gradient glow-text-purple">Free Credits.</span>
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className="text-lg text-white/70 leading-relaxed mb-10 max-w-xl"
             >
               PiLuck transforms every draw into a transparent community experience
               where everyone has an equal chance to win. Built for the Pi Network ecosystem.
