@@ -18,8 +18,32 @@ import type {
 } from "@/lib/pi-sdk";
 
 // PiLuck app configuration
-const PI_APP_ID = "PiLuck-app"; // Replace with your actual Pi App ID from the Pi Developer Portal
-const PI_SCOPE: PiScope[] = ["username", "payments"];
+const PI_APP_ID = process.env.NEXT_PUBLIC_PI_APP_ID?.trim() || "";
+const PI_SANDBOX = process.env.NEXT_PUBLIC_PI_SANDBOX !== "false";
+const PI_SCOPE: PiScope[] = ["username", "payments", "wallet_address"];
+
+async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = typeof payload?.error === "string" ? payload.error : "Request failed.";
+    throw new Error(message);
+  }
+
+  return payload as T;
+}
+
+function getWalletAddress(user: PiUser | null) {
+  return user?.wallet_address?.trim() || user?.uid || null;
+}
 
 export type PiConnectionState =
   | "disconnected"
@@ -71,11 +95,21 @@ export function usePiSDK() {
       // Pi SDK is available - we are in the Pi Browser
       if (mounted) setPiBrowser(true);
 
+      if (!PI_APP_ID) {
+        if (mounted) {
+          setError(
+            "Missing NEXT_PUBLIC_PI_APP_ID. Register this app in the Pi Developer Portal and set the Pi app ID before using Pi Browser payments."
+          );
+          setConnectionState("error");
+        }
+        return;
+      }
+
       try {
         // Initialize in sandbox (testnet) mode
         window.Pi.init({
           version: "2.0",
-          sandbox: true, // Pi Testnet
+          sandbox: PI_SANDBOX,
         });
 
         if (mounted) {
@@ -112,7 +146,7 @@ export function usePiSDK() {
 
     if (typeof window !== "undefined" && window.Pi) {
       try {
-        window.Pi.init({ version: "2.0", sandbox: true });
+        window.Pi.init({ version: "2.0", sandbox: PI_SANDBOX });
         setPiBrowser(true);
         setPiReady(true);
       } catch (err) {
@@ -156,6 +190,16 @@ export function usePiSDK() {
       setUser(result.user);
       setAccessToken(result.accessToken);
       setConnectionState("connected");
+
+      void postJson("/api/pi/session", {
+        accessToken: result.accessToken,
+        uid: result.user.uid,
+        username: result.user.username,
+        walletAddress: getWalletAddress(result.user),
+      }).catch((err: unknown) => {
+        console.warn("Pi session sync failed:", err);
+      });
+
       return true;
     } catch (err) {
       console.error("Pi authentication error:", err);
@@ -179,6 +223,14 @@ export function usePiSDK() {
         };
       }
 
+      if (!PI_APP_ID) {
+        return {
+          success: false,
+          error:
+            "Missing Pi app ID. Add NEXT_PUBLIC_PI_APP_ID from the Pi Developer Portal before taking payments live.",
+        };
+      }
+
       setIsProcessing(true);
       setError(null);
 
@@ -189,6 +241,7 @@ export function usePiSDK() {
           metadata: {
             type: "lottery_ticket",
             app: PI_APP_ID,
+            sandbox: PI_SANDBOX,
             timestamp: Date.now(),
           },
         };
@@ -196,9 +249,42 @@ export function usePiSDK() {
         const callbacks: PiPaymentCallbacks = {
           onReadyForServerApproval: (paymentId: string) => {
             console.log("Ready for server approval:", paymentId);
+            void postJson("/api/pi/payments/approve", {
+              accessToken,
+              paymentId,
+              amountPi: amount,
+              memo,
+              uid: user?.uid || "",
+              username: user?.username || "",
+              walletAddress: getWalletAddress(user),
+              metadata: paymentData.metadata,
+            }).catch((err: unknown) => {
+              console.warn("Payment approval sync failed:", err);
+            });
           },
           onReadyForServerCompletion: (paymentId: string, txid: string) => {
             console.log("Payment completed:", paymentId, txid);
+            void postJson("/api/pi/payments/complete", {
+              accessToken,
+              paymentId,
+              txid,
+              amountPi: amount,
+              memo,
+              uid: user?.uid || "",
+              username: user?.username || "",
+              walletAddress: getWalletAddress(user),
+              metadata: paymentData.metadata,
+            }).catch((err: unknown) => {
+              console.warn("Payment completion sync failed:", err);
+            });
+            void postJson("/api/credits/claim", {
+              accessToken,
+              uid: user?.uid || "",
+              username: user?.username || "",
+              walletAddress: getWalletAddress(user),
+            }).catch((err: unknown) => {
+              console.warn("Streak claim sync failed:", err);
+            });
             setIsProcessing(false);
             resolve({ success: true, paymentId, txid });
           },

@@ -7,6 +7,7 @@
 export interface PiUser {
   uid: string;
   username: string;
+  wallet_address?: string;
 }
 
 export interface PiAuthResult {

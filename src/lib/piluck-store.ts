@@ -1,0 +1,525 @@
+import { sql } from "@vercel/postgres";
+
+export const ROUND_DURATION_MS = 12 * 60 * 60 * 1000;
+
+const STREAK_MILESTONES = [
+  { days: 7, credits: 1 },
+  { days: 15, credits: 3 },
+  { days: 30, credits: 7 },
+  { days: 60, credits: 10 },
+  { days: 90, credits: 25 },
+  { days: 180, credits: 50 },
+  { days: 365, credits: 100 },
+] as const;
+
+export type WalletIdentity = {
+  uid: string;
+  username: string;
+  walletAddress?: string | null;
+};
+
+export type RoundRecord = {
+  roundNumber: number;
+  status: string;
+  startsAt: Date;
+  endsAt: Date;
+  baseTicketPrice: string;
+  totalBaseEntries: number;
+  totalCreditEntries: number;
+  totalPoolPi: string;
+  treasuryPi: string;
+  winnersCount: number;
+};
+
+export type WalletState = {
+  walletKey: string;
+  uid: string;
+  username: string;
+  walletAddress: string | null;
+  streakDays: number;
+  highestMilestoneDays: number;
+  freeCredits: number;
+  lastJoinedOn: string | null;
+  creditCooldownUntil: Date | null;
+};
+
+let schemaReady: Promise<void> | null = null;
+
+function normalizeWalletKey(identity: WalletIdentity) {
+  return identity.walletAddress?.trim() || identity.uid.trim();
+}
+
+function getDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function addDays(value: Date, days: number) {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function getRoundNumber(now: Date = new Date()) {
+  return Math.floor(now.getTime() / ROUND_DURATION_MS);
+}
+
+function getRoundBounds(roundNumber: number) {
+  const startsAt = new Date(roundNumber * ROUND_DURATION_MS);
+  return {
+    startsAt,
+    endsAt: new Date(startsAt.getTime() + ROUND_DURATION_MS),
+  };
+}
+
+function getHighestMilestone(streakDays: number) {
+  for (let index = STREAK_MILESTONES.length - 1; index >= 0; index -= 1) {
+    if (streakDays >= STREAK_MILESTONES[index].days) {
+      return STREAK_MILESTONES[index];
+    }
+  }
+
+  return null;
+}
+
+function getMilestoneCredits(previousHighest: number, currentHighest: number) {
+  return STREAK_MILESTONES.filter(
+    (milestone) => milestone.days > previousHighest && milestone.days <= currentHighest
+  ).reduce((total, milestone) => total + milestone.credits, 0);
+}
+
+export async function ensureSchema() {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS piluck_users (
+          wallet_key text PRIMARY KEY,
+          uid text NOT NULL,
+          username text NOT NULL,
+          wallet_address text,
+          streak_days integer NOT NULL DEFAULT 0,
+          highest_milestone_days integer NOT NULL DEFAULT 0,
+          free_credits integer NOT NULL DEFAULT 0,
+          last_joined_on date,
+          credit_cooldown_until timestamptz,
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          updated_at timestamptz NOT NULL DEFAULT NOW()
+        )
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS piluck_rounds (
+          round_number bigint PRIMARY KEY,
+          status text NOT NULL DEFAULT 'active',
+          starts_at timestamptz NOT NULL,
+          ends_at timestamptz NOT NULL,
+          base_ticket_price numeric(18, 8) NOT NULL DEFAULT 1,
+          total_base_entries integer NOT NULL DEFAULT 0,
+          total_credit_entries integer NOT NULL DEFAULT 0,
+          total_pool_pi numeric(18, 8) NOT NULL DEFAULT 0,
+          treasury_pi numeric(18, 8) NOT NULL DEFAULT 0,
+          winners_count integer NOT NULL DEFAULT 9,
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          updated_at timestamptz NOT NULL DEFAULT NOW(),
+          closed_at timestamptz
+        )
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS piluck_payments (
+          payment_id text PRIMARY KEY,
+          wallet_key text NOT NULL REFERENCES piluck_users(wallet_key) ON DELETE CASCADE,
+          uid text NOT NULL,
+          username text NOT NULL,
+          round_number bigint NOT NULL REFERENCES piluck_rounds(round_number) ON DELETE CASCADE,
+          amount_pi numeric(18, 8) NOT NULL,
+          memo text NOT NULL,
+          metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+          status text NOT NULL DEFAULT 'created',
+          txid text,
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          updated_at timestamptz NOT NULL DEFAULT NOW(),
+          approved_at timestamptz,
+          completed_at timestamptz
+        )
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS piluck_tickets (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          wallet_key text NOT NULL REFERENCES piluck_users(wallet_key) ON DELETE CASCADE,
+          round_number bigint NOT NULL REFERENCES piluck_rounds(round_number) ON DELETE CASCADE,
+          ticket_type text NOT NULL CHECK (ticket_type IN ('base', 'credit')),
+          payment_id text UNIQUE,
+          credits_spent integer NOT NULL DEFAULT 0,
+          amount_pi numeric(18, 8) NOT NULL DEFAULT 0,
+          created_at timestamptz NOT NULL DEFAULT NOW()
+        )
+      `;
+
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS piluck_base_ticket_unique
+        ON piluck_tickets (round_number, wallet_key)
+        WHERE ticket_type = 'base'
+      `;
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS piluck_tickets_wallet_round_idx
+        ON piluck_tickets (wallet_key, round_number)
+      `;
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS piluck_payments_wallet_idx
+        ON piluck_payments (wallet_key, created_at DESC)
+      `;
+    })();
+  }
+
+  return schemaReady;
+}
+
+export async function getOrCreateCurrentRound(now: Date = new Date()) {
+  await ensureSchema();
+
+  const roundNumber = getRoundNumber(now);
+  const { startsAt, endsAt } = getRoundBounds(roundNumber);
+
+  const existing = await sql`
+    SELECT * FROM piluck_rounds WHERE round_number = ${roundNumber} LIMIT 1
+  `;
+
+  if (existing.rows.length === 0) {
+    const inserted = await sql`
+      INSERT INTO piluck_rounds (
+        round_number,
+        status,
+        starts_at,
+        ends_at
+      ) VALUES (
+        ${roundNumber},
+        ${now < endsAt ? "active" : "closed"},
+        ${startsAt.toISOString()},
+        ${endsAt.toISOString()}
+      )
+      RETURNING *
+    `;
+
+    return mapRound(inserted.rows[0]);
+  }
+
+  const row = existing.rows[0];
+  if (row.status !== "closed" && now >= new Date(row.ends_at)) {
+    const closed = await sql`
+      UPDATE piluck_rounds
+      SET status = 'closed', closed_at = NOW(), updated_at = NOW()
+      WHERE round_number = ${roundNumber}
+      RETURNING *
+    `;
+
+    return mapRound(closed.rows[0]);
+  }
+
+  return mapRound(row);
+}
+
+export async function upsertWallet(identity: WalletIdentity) {
+  await ensureSchema();
+
+  const walletKey = normalizeWalletKey(identity);
+  await sql`
+    INSERT INTO piluck_users (
+      wallet_key,
+      uid,
+      username,
+      wallet_address,
+      updated_at
+    ) VALUES (
+      ${walletKey},
+      ${identity.uid},
+      ${identity.username},
+      ${identity.walletAddress ?? null},
+      NOW()
+    )
+    ON CONFLICT (wallet_key) DO UPDATE SET
+      uid = EXCLUDED.uid,
+      username = EXCLUDED.username,
+      wallet_address = EXCLUDED.wallet_address,
+      updated_at = NOW()
+  `;
+
+  return getWalletState(walletKey);
+}
+
+export async function getWalletState(walletKey: string) {
+  await ensureSchema();
+
+  const result = await sql`
+    SELECT * FROM piluck_users WHERE wallet_key = ${walletKey} LIMIT 1
+  `;
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapWallet(result.rows[0]);
+}
+
+export async function claimDailyStreak(identity: WalletIdentity) {
+  await ensureSchema();
+
+  const walletKey = normalizeWalletKey(identity);
+  const wallet = await upsertWallet(identity);
+  const now = new Date();
+
+  if (!wallet) {
+    throw new Error("Wallet state could not be created.");
+  }
+
+  const today = getDateOnly(now);
+  if (wallet.lastJoinedOn === today) {
+    return {
+      walletKey,
+      streakDays: wallet.streakDays,
+      freeCredits: wallet.freeCredits,
+      creditsAwarded: 0,
+      alreadyClaimedToday: true,
+    };
+  }
+
+  const yesterday = getDateOnly(addDays(now, -1));
+  const nextStreakDays = wallet.lastJoinedOn === yesterday ? wallet.streakDays + 1 : 1;
+  const nextMilestone = getHighestMilestone(nextStreakDays);
+  const creditsAwarded = nextMilestone
+    ? getMilestoneCredits(wallet.highestMilestoneDays, nextMilestone.days)
+    : 0;
+
+  const updated = await sql`
+    UPDATE piluck_users
+    SET
+      streak_days = ${nextStreakDays},
+      highest_milestone_days = ${nextMilestone?.days ?? wallet.highestMilestoneDays},
+      free_credits = free_credits + ${creditsAwarded},
+      last_joined_on = ${today},
+      updated_at = NOW()
+    WHERE wallet_key = ${walletKey}
+    RETURNING *
+  `;
+
+  return {
+    walletKey,
+    streakDays: mapWallet(updated.rows[0]).streakDays,
+    freeCredits: mapWallet(updated.rows[0]).freeCredits,
+    creditsAwarded,
+    alreadyClaimedToday: false,
+  };
+}
+
+export async function spendCredits(identity: WalletIdentity, quantity: number) {
+  await ensureSchema();
+
+  const walletKey = normalizeWalletKey(identity);
+  const wallet = await upsertWallet(identity);
+
+  if (!wallet) {
+    throw new Error("Wallet state could not be created.");
+  }
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error("Credit quantity must be at least 1.");
+  }
+
+  if (wallet.freeCredits < quantity) {
+    throw new Error("Not enough credits available.");
+  }
+
+  if (wallet.creditCooldownUntil && wallet.creditCooldownUntil > new Date()) {
+    throw new Error("Credit cooldown is still active.");
+  }
+
+  const nextCooldown = new Date(Date.now() + quantity * 60 * 60 * 1000);
+  const updated = await sql`
+    UPDATE piluck_users
+    SET
+      free_credits = free_credits - ${quantity},
+      credit_cooldown_until = ${nextCooldown.toISOString()},
+      updated_at = NOW()
+    WHERE wallet_key = ${walletKey}
+    RETURNING *
+  `;
+
+  return mapWallet(updated.rows[0]);
+}
+
+export async function recordPaymentApproval(params: {
+  identity: WalletIdentity;
+  paymentId: string;
+  amountPi: number;
+  memo: string;
+  metadata: Record<string, unknown>;
+  roundNumber?: number;
+}) {
+  await ensureSchema();
+
+  const round = await getOrCreateCurrentRound();
+  const wallet = await upsertWallet(params.identity);
+
+  if (!wallet) {
+    throw new Error("Wallet state could not be created.");
+  }
+
+  await sql`
+    INSERT INTO piluck_payments (
+      payment_id,
+      wallet_key,
+      uid,
+      username,
+      round_number,
+      amount_pi,
+      memo,
+      metadata,
+      status,
+      approved_at,
+      updated_at
+    ) VALUES (
+      ${params.paymentId},
+      ${wallet.walletKey},
+      ${params.identity.uid},
+      ${params.identity.username},
+      ${params.roundNumber ?? round.roundNumber},
+      ${params.amountPi},
+      ${params.memo},
+      ${JSON.stringify(params.metadata)}::jsonb,
+      'approved',
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (payment_id) DO UPDATE SET
+      wallet_key = EXCLUDED.wallet_key,
+      uid = EXCLUDED.uid,
+      username = EXCLUDED.username,
+      round_number = EXCLUDED.round_number,
+      amount_pi = EXCLUDED.amount_pi,
+      memo = EXCLUDED.memo,
+      metadata = EXCLUDED.metadata,
+      status = 'approved',
+      approved_at = NOW(),
+      updated_at = NOW()
+  `;
+
+  return {
+    walletKey: wallet.walletKey,
+    roundNumber: params.roundNumber ?? round.roundNumber,
+  };
+}
+
+export async function recordPaymentCompletion(params: {
+  identity: WalletIdentity;
+  paymentId: string;
+  txid: string;
+  amountPi: number;
+  memo: string;
+  metadata: Record<string, unknown>;
+  roundNumber?: number;
+  ticketType?: "base" | "credit";
+}) {
+  await ensureSchema();
+
+  const round = await getOrCreateCurrentRound();
+  const wallet = await upsertWallet(params.identity);
+
+  if (!wallet) {
+    throw new Error("Wallet state could not be created.");
+  }
+
+  const paymentUpdate = await sql`
+    UPDATE piluck_payments
+    SET
+      status = 'completed',
+      txid = ${params.txid},
+      completed_at = NOW(),
+      updated_at = NOW()
+    WHERE payment_id = ${params.paymentId}
+      AND status <> 'completed'
+    RETURNING *
+  `;
+
+  if (paymentUpdate.rows.length === 0) {
+    return {
+      walletKey: wallet.walletKey,
+      roundNumber: params.roundNumber ?? round.roundNumber,
+      alreadyCompleted: true,
+    };
+  }
+
+  const effectiveRound = params.roundNumber ?? Number(paymentUpdate.rows[0].round_number ?? round.roundNumber);
+
+  await sql`
+    INSERT INTO piluck_tickets (
+      wallet_key,
+      round_number,
+      ticket_type,
+      payment_id,
+      credits_spent,
+      amount_pi
+    ) VALUES (
+      ${wallet.walletKey},
+      ${effectiveRound},
+      ${params.ticketType ?? "base"},
+      ${params.paymentId},
+      ${params.ticketType === "credit" ? 1 : 0},
+      ${params.amountPi}
+    )
+    ON CONFLICT (payment_id) DO NOTHING
+  `;
+
+  await sql`
+    UPDATE piluck_rounds
+    SET
+      total_base_entries = total_base_entries + ${params.ticketType === "credit" ? 0 : 1},
+      total_credit_entries = total_credit_entries + ${params.ticketType === "credit" ? 1 : 0},
+      total_pool_pi = total_pool_pi + ${params.amountPi},
+      treasury_pi = treasury_pi + ${params.amountPi * 0.1},
+      updated_at = NOW()
+    WHERE round_number = ${effectiveRound}
+  `;
+
+  await claimDailyStreak(params.identity);
+
+  return {
+    walletKey: wallet.walletKey,
+    roundNumber: effectiveRound,
+    alreadyCompleted: false,
+  };
+}
+
+function mapRound(row: Record<string, unknown>): RoundRecord {
+  return {
+    roundNumber: Number(row.round_number),
+    status: String(row.status),
+    startsAt: new Date(String(row.starts_at)),
+    endsAt: new Date(String(row.ends_at)),
+    baseTicketPrice: String(row.base_ticket_price),
+    totalBaseEntries: Number(row.total_base_entries ?? 0),
+    totalCreditEntries: Number(row.total_credit_entries ?? 0),
+    totalPoolPi: String(row.total_pool_pi ?? "0"),
+    treasuryPi: String(row.treasury_pi ?? "0"),
+    winnersCount: Number(row.winners_count ?? 9),
+  };
+}
+
+function mapWallet(row: Record<string, unknown>): WalletState {
+  return {
+    walletKey: String(row.wallet_key),
+    uid: String(row.uid),
+    username: String(row.username),
+    walletAddress: row.wallet_address ? String(row.wallet_address) : null,
+    streakDays: Number(row.streak_days ?? 0),
+    highestMilestoneDays: Number(row.highest_milestone_days ?? 0),
+    freeCredits: Number(row.free_credits ?? 0),
+    lastJoinedOn: row.last_joined_on ? String(row.last_joined_on) : null,
+    creditCooldownUntil: row.credit_cooldown_until
+      ? new Date(String(row.credit_cooldown_until))
+      : null,
+  };
+}
