@@ -2,12 +2,10 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   Wallet,
   Ticket,
   Coins,
-  Shield,
   CheckCircle2,
   Info,
   ExternalLink,
@@ -64,12 +62,7 @@ export default function DocsPage() {
         </p>
 
         {/* Table of Contents */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="glass-card p-8 max-w-4xl mx-auto mb-16"
-        >
+        <div className="glass-card p-8 max-w-4xl mx-auto mb-16">
           <h2 className="text-xl font-semibold text-pi-gold-400 mb-4">
             Table of Contents
           </h2>
@@ -120,7 +113,7 @@ export default function DocsPage() {
                 className="hover:text-white transition-colors"
               >
                 6. Troubleshooting
-            </a>
+              </a>
             </li>
             <li>
               <a
@@ -139,17 +132,11 @@ export default function DocsPage() {
               </a>
             </li>
           </ul>
-        </motion.div>
+        </div>
 
         <div className="max-w-4xl mx-auto space-y-16">
           {/* 1. Getting Started */}
-          <motion.section
-            id="getting-started"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
+          <section id="getting-started">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               1. Getting Started
             </h2>
@@ -185,16 +172,10 @@ export default function DocsPage() {
                 </span>
               </div>
             </div>
-          </motion.section>
+          </section>
 
           {/* 2. How to Play */}
-          <motion.section
-            id="how-to-play"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
+          <section id="how-to-play">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               2. How to Play
             </h2>
@@ -216,16 +197,10 @@ export default function DocsPage() {
                 </div>
               ))}
             </div>
-          </motion.section>
+          </section>
 
           {/* 3. Wallet Connection Guide */}
-          <motion.section
-            id="wallet-guide"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
+          <section id="wallet-guide">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               3. Wallet Connection Guide
             </h2>
@@ -265,16 +240,10 @@ export default function DocsPage() {
                 </a>
               </div>
             </div>
-          </motion.section>
+          </section>
 
           {/* 4. Prize Distribution */}
-          <motion.section
-            id="prize-distribution"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
+          <section id="prize-distribution">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               4. Prize Distribution
             </h2>
@@ -313,16 +282,10 @@ export default function DocsPage() {
                 </div>
               </div>
             </div>
-          </motion.section>
+          </section>
 
           {/* 5. Fees & Treasury */}
-          <motion.section
-            id="fees"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
+          <section id="fees">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               5. Fees & Treasury
             </h2>
@@ -339,16 +302,10 @@ export default function DocsPage() {
                 balances are publicly transparent on the Pi Testnet.
               </p>
             </div>
-          </motion.section>
+          </section>
 
           {/* 6. Troubleshooting */}
-          <motion.section
-            id="troubleshooting"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
+          <section id="troubleshooting">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               6. Troubleshooting
             </h2>
@@ -404,16 +361,10 @@ export default function DocsPage() {
                 </div>
               </div>
             </div>
-          </motion.section>
+          </section>
 
           {/* 7. API & SDK Reference */}
-          <motion.section
-            id="api-reference"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-          >
+          <section id="api-reference">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               7. API & SDK Reference
             </h2>
@@ -466,16 +417,10 @@ export default function DocsPage() {
                 </span>
               </div>
             </div>
-          </motion.section>
+          </section>
 
           {/* 8. FAQ */}
-          <motion.section
-            id="faq"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.7 }}
-          >
+          <section id="faq">
             <h2 className="text-2xl font-bold text-pi-gold-400 mb-4">
               8. FAQ
             </h2>
@@ -526,17 +471,11 @@ export default function DocsPage() {
                 </p>
               </div>
             </div>
-          </motion.section>
+          </section>
         </div>
 
         {/* Quick Reference Strip */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
-        >
+        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
           <div className="glass-card p-4 text-center">
             <Coins className="w-6 h-6 text-pi-gold-400 mx-auto mb-2" />
             <p className="text-xs text-white/60">1 Pi Entry</p>
@@ -553,7 +492,7 @@ export default function DocsPage() {
             <Trophy className="w-6 h-6 text-pi-purple-400 mx-auto mb-2" />
             <p className="text-xs text-white/60">9 Winners</p>
           </div>
-        </motion.div>
+        </div>
       </div>
       <Footer />
       <ScrollToTop />
