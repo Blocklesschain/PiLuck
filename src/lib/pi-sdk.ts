@@ -1,7 +1,7 @@
 ﻿/**
  * Pi Network SDK Type Declarations
  * Based on the Pi Network Frontend SDK (pi-sdk.js)
- * @see https://sdk.pinetwork.com/pi-sdk.js
+ * @see https://sdk.minepi.com/pi-sdk.js
  */
 
 export interface PiUser {
@@ -58,4 +58,4 @@ declare global {
   }
 }
 
-export {};
+export { };

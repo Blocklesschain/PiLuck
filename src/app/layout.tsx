@@ -62,7 +62,7 @@ export default function RootLayout({
       >
         {/* Pi Network SDK — loaded from the official CDN */}
         <Script
-          src="https://sdk.pinetwork.com/pi-sdk.js"
+          src="https://sdk.minepi.com/pi-sdk.js"
           strategy="afterInteractive"
         />
         {children}
