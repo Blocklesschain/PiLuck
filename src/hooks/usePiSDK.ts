@@ -67,6 +67,34 @@ export interface PiWalletBalance {
   accountId: string | null;
 }
 
+export interface PiWalletRoundStatus {
+  wallet: {
+    walletKey: string;
+    uid: string;
+    username: string;
+    walletAddress: string | null;
+    streakDays: number;
+    highestMilestoneDays: number;
+    freeCredits: number;
+    lastJoinedOn: string | null;
+    creditCooldownUntil: string | null;
+  } | null;
+  round: {
+    roundNumber: number;
+    status: string;
+    startsAt: string;
+    endsAt: string;
+    totalBaseEntries: number;
+    totalCreditEntries: number;
+    totalPoolPi: string;
+    treasuryPi: string;
+  } | null;
+  hasBaseTicket: boolean;
+  hasCreditTicket: boolean;
+}
+
+const SESSION_STORAGE_KEY = "piluck_session_v1";
+
 export function usePiSDK() {
   const [piReady, setPiReady] = useState(false);
   const [piBrowser, setPiBrowser] = useState(false);
@@ -81,6 +109,8 @@ export function usePiSDK() {
   const [piBalanceLoaded, setPiBalanceLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [walletStatus, setWalletStatus] = useState<PiWalletRoundStatus | null>(null);
+  const [walletStatusLoaded, setWalletStatusLoaded] = useState(false);
 
   // Initialize the Pi SDK when the component mounts
   useEffect(() => {
@@ -155,6 +185,24 @@ export function usePiSDK() {
     };
   }, []);
 
+  // Restore a previously saved session when the page refreshes.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { user?: PiUser | null; accessToken?: string | null };
+      if (saved.user && saved.accessToken) {
+        setUser(saved.user);
+        setAccessToken(saved.accessToken);
+        setConnectionState("connected");
+        setWalletStatusLoaded(false);
+      }
+    } catch (err) {
+      console.warn("Failed to restore PiLuck session:", err);
+    }
+  }, []);
+
   // Manual retry function
   const retryInit = useCallback(() => {
     setError(null);
@@ -209,6 +257,17 @@ export function usePiSDK() {
       setAccessToken(result.accessToken);
       setConnectionState("connected");
       setPiBalanceLoaded(false);
+      setWalletStatusLoaded(false);
+
+      // Persist the session so the wallet stays connected after a refresh.
+      try {
+        window.localStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({ user: result.user, accessToken: result.accessToken })
+        );
+      } catch (err) {
+        console.warn("Failed to persist PiLuck session:", err);
+      }
 
       // If we don't have a wallet address at all, resolve the balance
       // immediately as "unavailable" instead of leaving the UI stuck on
@@ -373,6 +432,42 @@ export function usePiSDK() {
     [piReady, accessToken]
   );
 
+  // Refresh the wallet's round status (streaks, credits, ticket eligibility).
+  const refreshWalletStatus = useCallback(async () => {
+    if (!user || !accessToken) return;
+    setWalletStatusLoaded(false);
+    try {
+      const response = await postJson<PiWalletRoundStatus>("/api/rounds/current", {
+        uid: user.uid,
+        username: user.username,
+        walletAddress: getWalletAddress(user),
+        accessToken,
+      });
+      setWalletStatus(response);
+    } catch (err) {
+      console.warn("Failed to refresh wallet status:", err);
+    } finally {
+      setWalletStatusLoaded(true);
+    }
+  }, [user, accessToken]);
+
+  // Disconnect the wallet and clear the persisted session.
+  const disconnect = useCallback(() => {
+    setUser(null);
+    setAccessToken(null);
+    setConnectionState("disconnected");
+    setPiBalance({ nativeBalance: null, accountId: null });
+    setPiBalanceLoaded(false);
+    setWalletStatus(null);
+    setWalletStatusLoaded(false);
+    setError(null);
+    try {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (err) {
+      console.warn("Failed to clear PiLuck session:", err);
+    }
+  }, []);
+
   // Share to Pi social feed
   const shareResult = useCallback(
     (title: string, message: string, url?: string) => {
@@ -392,9 +487,13 @@ export function usePiSDK() {
     piBalanceLoaded,
     error,
     isProcessing,
+    walletStatus,
+    walletStatusLoaded,
     authenticate,
     createPayment,
     shareResult,
     retryInit,
+    disconnect,
+    refreshWalletStatus,
   };
 }

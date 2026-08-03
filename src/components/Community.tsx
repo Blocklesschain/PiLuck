@@ -4,15 +4,11 @@ import { motion } from "framer-motion";
 import {
   Send,
   Twitter,
-  Youtube,
-  Users,
 } from "lucide-react";
 
 const communityLinks = [
-  { icon: Send, label: "Telegram", href: "#", color: "text-[#229ED9]" },
-  { icon: Twitter, label: "X (Twitter)", href: "#", color: "text-white" },
-  { icon: Youtube, label: "YouTube", href: "#", color: "text-[#FF0000]" },
-  { icon: Users, label: "Community Updates", href: "#", color: "text-pi-purple-300" },
+  { icon: Send, label: "Telegram", href: "https://t.me/pi_luck", color: "text-[#229ED9]" },
+  { icon: Twitter, label: "X (Twitter)", href: "https://x.com/Pi_Luck", color: "text-white" },
 ];
 
 export default function Community() {
@@ -37,7 +33,7 @@ export default function Community() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-6 max-w-xl mx-auto">
           {communityLinks.map((link, index) => (
             <motion.a
               key={link.label}

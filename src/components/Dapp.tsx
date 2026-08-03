@@ -16,6 +16,10 @@ import {
   Hash,
   ExternalLink,
   Info,
+  LogOut,
+  Flame,
+  Gift,
+  RefreshCw,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePiSDK } from "@/hooks/usePiSDK";
@@ -32,10 +36,13 @@ export default function Dapp() {
     piBalanceLoaded,
     error: piError,
     isProcessing,
+    walletStatus,
+    walletStatusLoaded,
     authenticate,
     createPayment,
     shareResult,
-    retryInit,
+    disconnect,
+    refreshWalletStatus,
   } = usePiSDK();
 
   const [sdkLoading, setSdkLoading] = useState(true);
@@ -52,12 +59,24 @@ export default function Dapp() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Refresh wallet status when connected (after auth or session restore)
+  useEffect(() => {
+    if (connectionState === "connected" && !walletStatusLoaded) {
+      void refreshWalletStatus();
+    }
+  }, [connectionState, walletStatusLoaded, refreshWalletStatus]);
+
   const handleConnectWallet = async () => {
     await authenticate();
   };
 
   const handleBuyTicket = async () => {
     if (connectionState !== "connected") return;
+    if (walletStatus?.hasBaseTicket) {
+      setPaymentError("You already have a base ticket for this round. Use a Credit for an extra entry.");
+      setTicketState("error");
+      return;
+    }
 
     setTicketState("purchasing");
     setPaymentError(null);
@@ -67,6 +86,8 @@ export default function Dapp() {
       setTicketState("confirmed");
       setPaymentTxid(result.txid || null);
       setPaymentId(result.paymentId || null);
+      // Refresh wallet status to reflect the new ticket + streak
+      void refreshWalletStatus();
     } else {
       setTicketState("error");
       setPaymentError(result.error || "Payment failed. Please try again.");
@@ -83,6 +104,10 @@ export default function Dapp() {
 
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "initializing";
+  const hasBaseTicket = walletStatus?.hasBaseTicket ?? false;
+  const streakDays = walletStatus?.wallet?.streakDays ?? 0;
+  const freeCredits = walletStatus?.wallet?.freeCredits ?? 0;
+  const roundNumber = walletStatus?.round?.roundNumber ?? 0;
 
   return (
     <section id="dapp" className="relative py-20 md:py-28 overflow-hidden">
@@ -145,6 +170,15 @@ export default function Dapp() {
                   </p>
                 )}
               </div>
+              {isConnected && (
+                <button
+                  onClick={disconnect}
+                  title="Disconnect wallet"
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-red-400"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             {/* Step 2: Buy Ticket */}
@@ -161,7 +195,7 @@ export default function Dapp() {
               <div className="flex-1">
                 <p className="font-semibold">Buy 1 Pi Ticket</p>
                 <p className="text-sm text-white/60">
-                  {ticketState === "confirmed" ? "Ticket confirmed on-chain" : "One base ticket per wallet - 1 Pi"}
+                  {ticketState === "confirmed" ? "Ticket confirmed on-chain" : hasBaseTicket ? "Base ticket used this round" : "One base ticket per wallet - 1 Pi"}
                 </p>
               </div>
             </div>
@@ -291,7 +325,7 @@ export default function Dapp() {
                   )}
 
                   {/* Connected, no ticket: Buy Ticket */}
-                  {isConnected && ticketState !== "confirmed" && (
+                  {isConnected && ticketState !== "confirmed" && !hasBaseTicket && (
                     <motion.button
                       key="buy"
                       initial={{ opacity: 0, y: 10 }}
@@ -314,6 +348,24 @@ export default function Dapp() {
                         </>
                       )}
                     </motion.button>
+                  )}
+
+                  {/* Connected, base ticket used: show message */}
+                  {isConnected && ticketState !== "confirmed" && hasBaseTicket && (
+                    <motion.div
+                      key="base-used"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-4 rounded-xl bg-pi-purple-500/10 border border-pi-purple-500/30 text-center"
+                    >
+                      <p className="text-sm text-pi-purple-300 font-semibold">
+                        You already entered this round with your base ticket.
+                      </p>
+                      <p className="text-xs text-white/60 mt-1">
+                        Use a Credit for an extra entry, or wait for the next round.
+                      </p>
+                    </motion.div>
                   )}
 
                   {/* Ticket confirmed */}
@@ -396,6 +448,41 @@ export default function Dapp() {
                   <div className="flex items-center justify-center gap-2 text-sm text-white/50">
                     <Sparkles className="w-4 h-4 text-pi-gold-400" />
                     Connected as @{user?.username}
+                  </div>
+                )}
+
+                {/* Dashboard: Streaks & Credits */}
+                {isConnected && (
+                  <div className="glass-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white/80">Your Dashboard</p>
+                      <button
+                        onClick={() => void refreshWalletStatus()}
+                        title="Refresh"
+                        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-pi-gold-400"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="glass p-3 text-center">
+                        <Flame className="w-5 h-5 text-pi-gold-400 mx-auto mb-1" />
+                        <p className="text-xl font-bold text-pi-gold-400">
+                          {walletStatusLoaded ? streakDays : "..."}
+                        </p>
+                        <p className="text-xs text-white/60">Day Streak</p>
+                      </div>
+                      <div className="glass p-3 text-center">
+                        <Gift className="w-5 h-5 text-pi-purple-400 mx-auto mb-1" />
+                        <p className="text-xl font-bold text-pi-purple-400">
+                          {walletStatusLoaded ? freeCredits : "..."}
+                        </p>
+                        <p className="text-xs text-white/60">Free Credits</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-white/40 text-center">
+                      Round #{roundNumber} · Streak resets if you miss a round in a day
+                    </p>
                   </div>
                 )}
 

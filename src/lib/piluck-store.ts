@@ -165,6 +165,12 @@ export async function ensureSchema() {
       `;
 
       await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS piluck_credit_ticket_unique
+        ON piluck_tickets (round_number, wallet_key)
+        WHERE ticket_type = 'credit'
+      `;
+
+      await sql`
         CREATE INDEX IF NOT EXISTS piluck_tickets_wallet_round_idx
         ON piluck_tickets (wallet_key, round_number)
       `;
@@ -249,6 +255,57 @@ export async function upsertWallet(identity: WalletIdentity) {
   `;
 
   return getWalletState(walletKey);
+}
+
+export async function getRoundTotals() {
+  await ensureSchema();
+
+  const totals = await sql`
+    SELECT
+      COALESCE(SUM(total_base_entries + total_credit_entries), 0)::int AS total_entries,
+      COALESCE(SUM(total_pool_pi), 0) AS total_pool_pi,
+      COALESCE(SUM(treasury_pi), 0) AS total_treasury_pi,
+      COUNT(*)::int AS rounds_count
+    FROM piluck_rounds
+  `;
+
+  const row = totals.rows[0] ?? {};
+
+  return {
+    totalEntries: Number(row.total_entries ?? 0),
+    totalPoolPi: Number(row.total_pool_pi ?? 0),
+    totalTreasuryPi: Number(row.total_treasury_pi ?? 0),
+    roundsCount: Number(row.rounds_count ?? 0),
+  };
+}
+
+export async function getWalletRoundStatus(identity: WalletIdentity) {
+  await ensureSchema();
+
+  const wallet = await upsertWallet(identity);
+
+  if (!wallet) {
+    throw new Error("Wallet state could not be created.");
+  }
+
+  const round = await getOrCreateCurrentRound();
+  const walletKey = normalizeWalletKey(identity);
+
+  const tickets = await sql`
+    SELECT ticket_type
+    FROM piluck_tickets
+    WHERE wallet_key = ${walletKey}
+      AND round_number = ${round.roundNumber}
+  `;
+
+  const types = tickets.rows.map((row) => String(row.ticket_type));
+
+  return {
+    wallet,
+    round,
+    hasBaseTicket: types.includes("base"),
+    hasCreditTicket: types.includes("credit"),
+  };
 }
 
 export async function getWalletState(walletKey: string) {
@@ -453,6 +510,26 @@ export async function recordPaymentCompletion(params: {
   }
 
   const effectiveRound = params.roundNumber ?? Number(paymentUpdate.rows[0].round_number ?? round.roundNumber);
+  const ticketType = params.ticketType ?? "base";
+
+  // Enforce one base ticket and one credit ticket per wallet per round.
+  const existingTicket = await sql`
+    SELECT id
+    FROM piluck_tickets
+    WHERE wallet_key = ${wallet.walletKey}
+      AND round_number = ${effectiveRound}
+      AND ticket_type = ${ticketType}
+    LIMIT 1
+  `;
+
+  if (existingTicket.rows.length > 0) {
+    return {
+      walletKey: wallet.walletKey,
+      roundNumber: effectiveRound,
+      alreadyCompleted: true,
+      reason: "ticket_already_used_this_round",
+    };
+  }
 
   await sql`
     INSERT INTO piluck_tickets (
@@ -465,9 +542,9 @@ export async function recordPaymentCompletion(params: {
     ) VALUES (
       ${wallet.walletKey},
       ${effectiveRound},
-      ${params.ticketType ?? "base"},
+      ${ticketType},
       ${params.paymentId},
-      ${params.ticketType === "credit" ? 1 : 0},
+      ${ticketType === "credit" ? 1 : 0},
       ${params.amountPi}
     )
     ON CONFLICT (payment_id) DO NOTHING
@@ -476,8 +553,8 @@ export async function recordPaymentCompletion(params: {
   await sql`
     UPDATE piluck_rounds
     SET
-      total_base_entries = total_base_entries + ${params.ticketType === "credit" ? 0 : 1},
-      total_credit_entries = total_credit_entries + ${params.ticketType === "credit" ? 1 : 0},
+      total_base_entries = total_base_entries + ${ticketType === "credit" ? 0 : 1},
+      total_credit_entries = total_credit_entries + ${ticketType === "credit" ? 1 : 0},
       total_pool_pi = total_pool_pi + ${params.amountPi},
       treasury_pi = treasury_pi + ${params.amountPi * 0.1},
       updated_at = NOW()

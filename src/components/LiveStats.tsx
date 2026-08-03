@@ -20,14 +20,15 @@ interface Stat {
   decimals?: number;
 }
 
-const stats: Stat[] = [
-  { icon: Coins, label: "Current Jackpot", value: 10000, prefix: "", suffix: " Pi" },
-  { icon: Timer, label: "Current Round", value: 42, prefix: "#" },
-  { icon: Timer, label: "Hours Remaining", value: 5, suffix: "h" },
-  { icon: Users, label: "Participants", value: 10000 },
-  { icon: Trophy, label: "Total Pi Distributed", value: 250000, suffix: " Pi" },
-  { icon: Award, label: "Total Winners", value: 378 },
-];
+interface LiveStatsData {
+  currentJackpotPi: number;
+  currentRound: number;
+  hoursRemaining: number;
+  participants: number;
+  totalDistributedPi: number;
+  totalWinners: number;
+  treasuryPi: number;
+}
 
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: { value: number; prefix?: string; suffix?: string; decimals?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -70,6 +71,41 @@ function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: { va
 }
 
 export default function LiveStats() {
+  const [data, setData] = useState<LiveStatsData | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const response = await fetch("/api/rounds/current");
+        const payload = await response.json();
+        if (mounted && payload?.ok && payload.stats) {
+          setData(payload.stats);
+        }
+      } catch (err) {
+        console.warn("Failed to load live stats:", err);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 60_000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const stats: Stat[] = [
+    { icon: Coins, label: "Current Jackpot", value: data?.currentJackpotPi ?? 0, prefix: "", suffix: " Pi", decimals: 2 },
+    { icon: Timer, label: "Current Round", value: data?.currentRound ?? 0, prefix: "#" },
+    { icon: Timer, label: "Hours Remaining", value: data?.hoursRemaining ?? 0, suffix: "h" },
+    { icon: Users, label: "Participants", value: data?.participants ?? 0 },
+    { icon: Trophy, label: "Total Pi Distributed", value: data?.totalDistributedPi ?? 0, suffix: " Pi", decimals: 2 },
+    { icon: Award, label: "Total Winners", value: data?.totalWinners ?? 0 },
+  ];
+
   return (
     <section id="stats" className="relative py-20 md:py-28 overflow-hidden">
       <div className="absolute inset-0 bg-grid" />
@@ -125,7 +161,7 @@ export default function LiveStats() {
           className="mt-12 flex items-center justify-center gap-2 text-sm text-white/50"
         >
           <Sparkles className="w-4 h-4 text-pi-gold-400" />
-          <span>Statistics are placeholder values and will update at launch</span>
+          <span>Live data from the current round — updates automatically.</span>
         </motion.div>
       </div>
     </section>
