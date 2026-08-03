@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { recordPaymentCompletion } from "@/lib/piluck-store";
+import { completePiPayment } from "@/lib/pi-platform";
 import { verifyPiAccessToken, verifyPiPayment } from "@/lib/pi-verify";
 
 const completionSchema = z.object({
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     await verifyPiAccessToken(parsed.data.accessToken);
     await verifyPiPayment(parsed.data.paymentId, parsed.data.accessToken);
+    await completePiPayment(parsed.data.paymentId, parsed.data.txid);
   } catch (error) {
     return NextResponse.json(
       {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { recordPaymentApproval } from "@/lib/piluck-store";
+import { approvePiPayment } from "@/lib/pi-platform";
 import { verifyPiAccessToken, verifyPiPayment } from "@/lib/pi-verify";
 
 const approvalSchema = z.object({
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     await verifyPiAccessToken(parsed.data.accessToken);
     await verifyPiPayment(parsed.data.paymentId, parsed.data.accessToken);
+    await approvePiPayment(parsed.data.paymentId);
   } catch (error) {
     return NextResponse.json(
       {

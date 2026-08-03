@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { claimDailyStreak, upsertWallet } from "@/lib/piluck-store";
+import { fetchPiWalletBalance } from "@/lib/pi-platform";
 import { verifyPiAccessToken } from "@/lib/pi-verify";
 
 const sessionSchema = z.object({
@@ -48,9 +49,20 @@ export async function POST(request: NextRequest) {
     walletAddress: parsed.data.walletAddress ?? undefined,
   });
 
+  let balance: { nativeBalance: string | null; accountId: string } | null = null;
+
+  if (wallet.walletAddress) {
+    try {
+      balance = await fetchPiWalletBalance(wallet.walletAddress);
+    } catch (error) {
+      console.warn("Pi wallet balance lookup failed:", error);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     wallet,
     streak,
+    balance,
   });
 }

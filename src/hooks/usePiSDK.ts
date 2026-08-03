@@ -58,6 +58,11 @@ export interface PiPaymentResult {
   error?: string;
 }
 
+export interface PiWalletBalance {
+  nativeBalance: string | null;
+  accountId: string | null;
+}
+
 export function usePiSDK() {
   const [piReady, setPiReady] = useState(false);
   const [piBrowser, setPiBrowser] = useState(false);
@@ -65,6 +70,10 @@ export function usePiSDK() {
     useState<PiConnectionState>("disconnected");
   const [user, setUser] = useState<PiUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [piBalance, setPiBalance] = useState<PiWalletBalance>({
+    nativeBalance: null,
+    accountId: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -195,14 +204,26 @@ export function usePiSDK() {
       setAccessToken(result.accessToken);
       setConnectionState("connected");
 
-      void postJson("/api/pi/session", {
-        accessToken: result.accessToken,
-        uid: result.user.uid,
-        username: result.user.username,
-        walletAddress: getWalletAddress(result.user),
-      }).catch((err: unknown) => {
-        console.warn("Pi session sync failed:", err);
-      });
+      void postJson<{ balance?: { nativeBalance: string | null; accountId: string } }>(
+        "/api/pi/session",
+        {
+          accessToken: result.accessToken,
+          uid: result.user.uid,
+          username: result.user.username,
+          walletAddress: getWalletAddress(result.user),
+        }
+      )
+        .then((response) => {
+          if (response.balance) {
+            setPiBalance({
+              nativeBalance: response.balance.nativeBalance,
+              accountId: response.balance.accountId,
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          console.warn("Pi session sync failed:", err);
+        });
 
       return true;
     } catch (err) {
@@ -333,6 +354,7 @@ export function usePiSDK() {
     connectionState,
     user,
     accessToken,
+    piBalance,
     error,
     isProcessing,
     authenticate,
