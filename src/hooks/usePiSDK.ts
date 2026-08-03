@@ -87,6 +87,10 @@ export function usePiSDK() {
           if (mounted) {
             setPiBrowser(false);
             setPiReady(false);
+            setError(
+              "Pi SDK was not detected. Open this app inside the Pi Browser app on a mobile device, or make sure the Pi Browser is available in your environment."
+            );
+            setConnectionState("error");
           }
         }
         return;
@@ -95,10 +99,10 @@ export function usePiSDK() {
       // Pi SDK is available - we are in the Pi Browser
       if (mounted) setPiBrowser(true);
 
-      if (!PI_APP_ID) {
+      if (!PI_APP_ID || PI_APP_ID.includes("your_real_pi_app_id")) {
         if (mounted) {
           setError(
-            "Missing NEXT_PUBLIC_PI_APP_ID. Register this app in the Pi Developer Portal and set the Pi app ID before using Pi Browser payments."
+            "Missing or placeholder NEXT_PUBLIC_PI_APP_ID. Register this app in the Pi Developer Portal and set the real Pi app ID before using Pi Browser payments."
           );
           setConnectionState("error");
         }
@@ -223,11 +227,11 @@ export function usePiSDK() {
         };
       }
 
-      if (!PI_APP_ID) {
+      if (!PI_APP_ID || PI_APP_ID.includes("your_real_pi_app_id")) {
         return {
           success: false,
           error:
-            "Missing Pi app ID. Add NEXT_PUBLIC_PI_APP_ID from the Pi Developer Portal before taking payments live.",
+            "Missing or placeholder Pi app ID. Set the real NEXT_PUBLIC_PI_APP_ID from the Pi Developer Portal before taking payments.",
         };
       }
 
