@@ -56,11 +56,11 @@ export async function verifyPiAccessToken(accessToken: string) {
   return parsed.payload;
 }
 
-export async function verifyPiPayment(paymentId: string, accessToken: string) {
+export async function verifyPiPayment(paymentId: string) {
   const response = await fetch(buildPaymentUrl(paymentId), {
     method: process.env.PI_PAYMENT_VERIFY_METHOD?.trim() || "GET",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Key ${process.env.PI_SERVER_API_KEY?.trim() || ""}`,
       Accept: "application/json",
     },
   });

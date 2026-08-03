@@ -29,6 +29,7 @@ export default function Dapp() {
     connectionState,
     user,
     piBalance,
+    piBalanceLoaded,
     error: piError,
     isProcessing,
     authenticate,
@@ -49,6 +50,7 @@ export default function Dapp() {
   const [ticketState, setTicketState] = useState<TicketState>("idle");
   const [paymentTxid, setPaymentTxid] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const handleConnectWallet = async () => {
     await authenticate();
@@ -58,6 +60,7 @@ export default function Dapp() {
     if (connectionState !== "connected") return;
 
     setTicketState("purchasing");
+    setPaymentError(null);
     const result = await createPayment(1, "PiLuck Lottery Ticket - 1 Pi entry");
 
     if (result.success) {
@@ -66,6 +69,7 @@ export default function Dapp() {
       setPaymentId(result.paymentId || null);
     } else {
       setTicketState("error");
+      setPaymentError(result.error || "Payment failed. Please try again.");
     }
   };
 
@@ -137,7 +141,7 @@ export default function Dapp() {
                 </p>
                 {isConnected && (
                   <p className="text-xs text-pi-gold-300 mt-1">
-                    Balance: {piBalance.nativeBalance ?? "loading..."} Test Pi
+                    Balance: {piBalanceLoaded ? (piBalance.nativeBalance ?? "unavailable") : "loading..."} Test Pi
                   </p>
                 )}
               </div>
@@ -256,7 +260,7 @@ export default function Dapp() {
                       className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3"
                     >
                       <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
-                      <p className="text-sm text-red-300">{piError || "Payment failed. Please try again."}</p>
+                      <p className="text-sm text-red-300">{piError || paymentError || "Payment failed. Please try again."}</p>
                     </motion.div>
                   )}
 
@@ -370,7 +374,7 @@ export default function Dapp() {
                             Balance
                           </span>
                           <span className="font-bold text-pi-gold-400">
-                            {piBalance.nativeBalance ?? "loading..."} Test Pi
+                            {piBalanceLoaded ? (piBalance.nativeBalance ?? "unavailable") : "loading..."} Test Pi
                           </span>
                         </div>
                       </div>

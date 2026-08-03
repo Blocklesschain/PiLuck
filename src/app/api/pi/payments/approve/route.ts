@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   try {
     await verifyPiAccessToken(parsed.data.accessToken);
-    await verifyPiPayment(parsed.data.paymentId, parsed.data.accessToken);
+    await verifyPiPayment(parsed.data.paymentId);
     await approvePiPayment(parsed.data.paymentId);
   } catch (error) {
     return NextResponse.json(

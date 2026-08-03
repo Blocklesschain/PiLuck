@@ -21,6 +21,10 @@ import type {
 const PI_APP_ID = process.env.NEXT_PUBLIC_PI_APP_ID?.trim() || "";
 const PI_SANDBOX = process.env.NEXT_PUBLIC_PI_SANDBOX !== "false";
 const PI_SCOPE: PiScope[] = ["username", "payments", "wallet_address"];
+const PI_TREASURY_WALLET_ADDRESS =
+  process.env.NEXT_PUBLIC_PI_TREASURY_WALLET_ADDRESS?.trim() ||
+  "GBTZK5GUPSURYQNUA54DHY2J77SCZGSXRZAPRR7I2FCIDWL52BPR7JLK";
+const PI_TREASURY_PERCENT = 0.1; // 10% of each entry goes to the treasury
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(path, {
@@ -74,6 +78,7 @@ export function usePiSDK() {
     nativeBalance: null,
     accountId: null,
   });
+  const [piBalanceLoaded, setPiBalanceLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -203,27 +208,51 @@ export function usePiSDK() {
       setUser(result.user);
       setAccessToken(result.accessToken);
       setConnectionState("connected");
+      setPiBalanceLoaded(false);
 
-      void postJson<{ balance?: { nativeBalance: string | null; accountId: string } }>(
-        "/api/pi/session",
-        {
-          accessToken: result.accessToken,
-          uid: result.user.uid,
-          username: result.user.username,
-          walletAddress: getWalletAddress(result.user),
-        }
-      )
-        .then((response) => {
-          if (response.balance) {
-            setPiBalance({
-              nativeBalance: response.balance.nativeBalance,
-              accountId: response.balance.accountId,
-            });
-          }
-        })
-        .catch((err: unknown) => {
-          console.warn("Pi session sync failed:", err);
+      // If we don't have a wallet address at all, resolve the balance
+      // immediately as "unavailable" instead of leaving the UI stuck on
+      // "loading..." forever.
+      const walletAddr = getWalletAddress(result.user);
+      if (!walletAddr) {
+        setPiBalance({
+          nativeBalance: "unavailable",
+          accountId: null,
         });
+        setPiBalanceLoaded(true);
+      } else {
+        void postJson<{ balance?: { nativeBalance: string | null; accountId: string } }>(
+          "/api/pi/session",
+          {
+            accessToken: result.accessToken,
+            uid: result.user.uid,
+            username: result.user.username,
+            walletAddress: walletAddr,
+          }
+        )
+          .then((response) => {
+            if (response.balance && response.balance.nativeBalance != null) {
+              setPiBalance({
+                nativeBalance: response.balance.nativeBalance,
+                accountId: response.balance.accountId,
+              });
+            } else {
+              setPiBalance({
+                nativeBalance: "unavailable",
+                accountId: null,
+              });
+            }
+            setPiBalanceLoaded(true);
+          })
+          .catch((err: unknown) => {
+            console.warn("Pi session sync failed:", err);
+            setPiBalance({
+              nativeBalance: "unavailable",
+              accountId: null,
+            });
+            setPiBalanceLoaded(true);
+          });
+      }
 
       return true;
     } catch (err) {
@@ -259,6 +288,8 @@ export function usePiSDK() {
       setIsProcessing(true);
       setError(null);
 
+      const pi = window.Pi;
+
       return new Promise<PiPaymentResult>((resolve) => {
         const paymentData: PiPaymentData = {
           amount,
@@ -268,6 +299,9 @@ export function usePiSDK() {
             app: PI_APP_ID,
             sandbox: PI_SANDBOX,
             timestamp: Date.now(),
+            treasuryWallet: PI_TREASURY_WALLET_ADDRESS,
+            treasuryPercent: PI_TREASURY_PERCENT,
+            treasuryAmountPi: Number((amount * PI_TREASURY_PERCENT).toFixed(8)),
           },
         };
 
@@ -326,7 +360,7 @@ export function usePiSDK() {
         };
 
         try {
-          window.Pi.createPayment(paymentData, callbacks);
+          pi.createPayment(paymentData, callbacks);
         } catch (err) {
           setIsProcessing(false);
           resolve({
@@ -355,6 +389,7 @@ export function usePiSDK() {
     user,
     accessToken,
     piBalance,
+    piBalanceLoaded,
     error,
     isProcessing,
     authenticate,

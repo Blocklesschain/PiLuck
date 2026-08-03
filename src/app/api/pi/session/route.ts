@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
   let balance: { nativeBalance: string | null; accountId: string } | null = null;
 
-  if (wallet.walletAddress) {
+  if (wallet?.walletAddress) {
     try {
       balance = await fetchPiWalletBalance(wallet.walletAddress);
     } catch (error) {
