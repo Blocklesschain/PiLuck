@@ -1,4 +1,27 @@
-import { sql } from "@vercel/postgres";
+import postgres from "postgres";
+
+// Use postgres.js for the data layer. It works reliably with any Postgres
+// connection string (Vercel Postgres, Supabase, Neon, etc.), unlike
+// @vercel/postgres which rejects non-"-pooler." Supabase URLs.
+const connectionString =
+  (process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING)?.trim() ||
+  "";
+
+const pg = postgres(connectionString, {
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+
+// Adapter returning the { rows } shape expected by the rest of this module.
+type AnyRow = Record<string, unknown>;
+async function sql<T = AnyRow>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): Promise<{ rows: T[] }> {
+  const rows = (await pg(strings, ...(values as never[]))) as unknown as T[];
+  return { rows };
+}
 
 export const ROUND_DURATION_MS = 12 * 60 * 60 * 1000;
 
@@ -215,7 +238,7 @@ export async function getOrCreateCurrentRound(now: Date = new Date()) {
   }
 
   const row = existing.rows[0];
-  if (row.status !== "closed" && now >= new Date(row.ends_at)) {
+  if (row.status !== "closed" && now >= new Date(String(row.ends_at))) {
     const closed = await sql`
       UPDATE piluck_rounds
       SET status = 'closed', closed_at = NOW(), updated_at = NOW()
