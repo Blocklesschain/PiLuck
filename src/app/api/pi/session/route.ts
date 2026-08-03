@@ -37,26 +37,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const wallet = await upsertWallet({
-    uid: parsed.data.uid,
-    username: parsed.data.username,
-    walletAddress: parsed.data.walletAddress ?? undefined,
-  });
-
-  const streak = await claimDailyStreak({
-    uid: parsed.data.uid,
-    username: parsed.data.username,
-    walletAddress: parsed.data.walletAddress ?? undefined,
-  });
-
+  // The database may not be configured yet. Fetch the on-chain balance
+  // independently so it still works, and degrade DB-backed features gracefully.
   let balance: { nativeBalance: string | null; accountId: string } | null = null;
 
-  if (wallet?.walletAddress) {
+  if (parsed.data.walletAddress) {
     try {
-      balance = await fetchPiWalletBalance(wallet.walletAddress);
+      balance = await fetchPiWalletBalance(parsed.data.walletAddress);
     } catch (error) {
       console.warn("Pi wallet balance lookup failed:", error);
     }
+  }
+
+  let wallet = null;
+  let streak = null;
+
+  try {
+    wallet = await upsertWallet({
+      uid: parsed.data.uid,
+      username: parsed.data.username,
+      walletAddress: parsed.data.walletAddress ?? undefined,
+    });
+
+    streak = await claimDailyStreak({
+      uid: parsed.data.uid,
+      username: parsed.data.username,
+      walletAddress: parsed.data.walletAddress ?? undefined,
+    });
+  } catch (error) {
+    console.warn("Pi DB sync failed (is POSTGRES_URL configured?):", error);
   }
 
   return NextResponse.json({
