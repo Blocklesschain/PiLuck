@@ -377,13 +377,10 @@ export function usePiSDK() {
               walletAddress: getWalletAddress(user),
               metadata: paymentData.metadata,
             }).catch((err: unknown) => {
-              const msg =
-                err instanceof Error ? err.message : "Payment approval failed.";
-              // A rejected approval (e.g., duplicate base ticket) means the user
-              // should NOT be able to proceed. Surface it and void the payment.
-              console.warn("Payment approval rejected:", msg);
-              setIsProcessing(false);
-              resolve({ success: false, error: msg });
+              // The user's Pi has already been charged by this point. An
+              // approval sync error must NOT break the flow or show
+              // "Request failed" — completion is what determines success.
+              console.warn("Payment approval sync failed:", err);
             });
           },
           onReadyForServerCompletion: (paymentId: string, txid: string) => {

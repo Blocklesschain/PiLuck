@@ -188,12 +188,6 @@ export async function ensureSchema() {
       `;
 
       await sql`
-        CREATE UNIQUE INDEX IF NOT EXISTS piluck_credit_ticket_unique
-        ON piluck_tickets (round_number, wallet_key)
-        WHERE ticket_type = 'credit'
-      `;
-
-      await sql`
         CREATE INDEX IF NOT EXISTS piluck_tickets_wallet_round_idx
         ON piluck_tickets (wallet_key, round_number)
       `;
@@ -535,23 +529,26 @@ export async function recordPaymentCompletion(params: {
   const effectiveRound = params.roundNumber ?? Number(paymentUpdate.rows[0].round_number ?? round.roundNumber);
   const ticketType = params.ticketType ?? "base";
 
-  // Enforce one base ticket and one credit ticket per wallet per round.
-  const existingTicket = await sql`
-    SELECT id
-    FROM piluck_tickets
-    WHERE wallet_key = ${wallet.walletKey}
-      AND round_number = ${effectiveRound}
-      AND ticket_type = ${ticketType}
-    LIMIT 1
-  `;
+  // Enforce one BASE ticket per wallet per round. Credit entries are allowed
+  // multiple times per round, gated by the 1-hour cooldown in spendCredits.
+  if (ticketType === "base") {
+    const existingTicket = await sql`
+      SELECT id
+      FROM piluck_tickets
+      WHERE wallet_key = ${wallet.walletKey}
+        AND round_number = ${effectiveRound}
+        AND ticket_type = 'base'
+      LIMIT 1
+    `;
 
-  if (existingTicket.rows.length > 0) {
-    return {
-      walletKey: wallet.walletKey,
-      roundNumber: effectiveRound,
-      alreadyCompleted: true,
-      reason: "ticket_already_used_this_round",
-    };
+    if (existingTicket.rows.length > 0) {
+      return {
+        walletKey: wallet.walletKey,
+        roundNumber: effectiveRound,
+        alreadyCompleted: true,
+        reason: "ticket_already_used_this_round",
+      };
+    }
   }
 
   await sql`

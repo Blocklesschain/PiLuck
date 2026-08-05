@@ -20,9 +20,8 @@ const footerLinks = {
     { label: "Terms & Conditions", href: "/terms" },
   ],
   community: [
-    { label: "Telegram", href: "#" },
-    { label: "X (Twitter)", href: "#" },
-    { label: "YouTube", href: "#" },
+    { label: "Telegram", href: "https://t.me/pi_luck" },
+    { label: "X (Twitter)", href: "https://x.com/Pi_Luck" },
   ],
 };
 
