@@ -127,7 +127,7 @@ export default function Dapp() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
             <span className={`w-2 h-2 rounded-full ${piReady ? "bg-green-400" : "bg-yellow-400"} animate-pulse`} />
             <span className="text-sm text-white/80">
-              {piReady ? "Pi sandbox mode active" : piBrowser ? "Initializing Pi SDK..." : "Waiting for Pi Browser"}
+              {piReady ? "Running on Pi Testnet" : piBrowser ? "Initializing Pi SDK..." : "Waiting for Pi Browser"}
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
@@ -434,13 +434,6 @@ export default function Dapp() {
                   )}
                 </AnimatePresence>
 
-                {/* User info when connected */}
-                {isConnected && ticketState !== "confirmed" && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-white/50">
-                    <Sparkles className="w-4 h-4 text-pi-gold-400" />
-                    Connected as @{user?.username}
-                  </div>
-                )}
 
                 {/* Dashboard: Streaks & Credits */}
                 {isConnected && (

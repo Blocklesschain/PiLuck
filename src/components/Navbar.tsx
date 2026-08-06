@@ -1,11 +1,12 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, Wallet } from "lucide-react";
+import { Menu, X, Wallet, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SiteLogo from "./SiteLogo";
+import { usePiSDK } from "@/hooks/usePiSDK";
 
 const navLinks = [
   { label: "About", href: "/about" },
@@ -20,6 +21,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { connectionState, user, disconnect } = usePiSDK();
+  const isConnected = connectionState === "connected";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,13 +60,29 @@ export default function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-4">
-          <Link
-            href="/#dapp"
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pi-gold-500 to-pi-gold-600 text-black text-sm font-bold hover:opacity-90 transition-opacity glow-gold flex items-center gap-2"
-          >
-            <Wallet className="w-4 h-4" />
-            Connect Wallet
-          </Link>
+          {isConnected ? (
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl glass border border-pi-gold-500/40">
+              <Wallet className="w-4 h-4 text-pi-gold-400" />
+              <span className="text-sm font-semibold text-pi-gold-300">
+                Connected as: @{user?.username}
+              </span>
+              <button
+                onClick={disconnect}
+                title="Disconnect wallet"
+                className="ml-1 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-red-400"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/#dapp"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pi-gold-500 to-pi-gold-600 text-black text-sm font-bold hover:opacity-90 transition-opacity glow-gold flex items-center gap-2"
+            >
+              <Wallet className="w-4 h-4" />
+              Connect Wallet
+            </Link>
+          )}
         </div>
 
         <button
@@ -98,14 +117,30 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/#dapp"
-                onClick={() => setMobileOpen(false)}
-                className="px-5 py-3 rounded-xl bg-gradient-to-r from-pi-gold-500 to-pi-gold-600 text-black text-sm font-bold text-center flex items-center justify-center gap-2"
-              >
-                <Wallet className="w-4 h-4" />
-                Connect Wallet
-              </Link>
+              {isConnected ? (
+                <div className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl glass border border-pi-gold-500/40">
+                  <Wallet className="w-4 h-4 text-pi-gold-400" />
+                  <span className="text-sm font-semibold text-pi-gold-300">
+                    Connected as: @{user?.username}
+                  </span>
+                  <button
+                    onClick={() => { disconnect(); setMobileOpen(false); }}
+                    title="Disconnect wallet"
+                    className="ml-1 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-red-400"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/#dapp"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-5 py-3 rounded-xl bg-gradient-to-r from-pi-gold-500 to-pi-gold-600 text-black text-sm font-bold text-center flex items-center justify-center gap-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Connect Wallet
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
