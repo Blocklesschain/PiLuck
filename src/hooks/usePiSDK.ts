@@ -25,6 +25,11 @@ const PI_TREASURY_WALLET_ADDRESS =
   process.env.NEXT_PUBLIC_PI_TREASURY_WALLET_ADDRESS?.trim() ||
   "GBTZK5GUPSURYQNUA54DHY2J77SCZGSXRZAPRR7I2FCIDWL52BPR7JLK";
 const PI_TREASURY_PERCENT = 0.1; // 10% of each entry goes to the treasury
+const ROUND_DURATION_MS = 12 * 60 * 60 * 1000;
+
+function getCurrentRoundNumber() {
+  return Math.floor(Date.now() / ROUND_DURATION_MS);
+}
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(path, {
@@ -186,17 +191,56 @@ export function usePiSDK() {
   }, []);
 
   // Restore a previously saved session when the page refreshes.
+  // IMPORTANT: We restore the user info for display, but we do NOT set
+  // connectionState to "connected" because the Pi SDK's internal auth state
+  // is lost on refresh. The user must re-authenticate to make payments.
+  // Without a fresh Pi.authenticate(), Pi.createPayment() will fail with
+  // "Cannot create a payment without payment scope".
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { user?: PiUser | null; accessToken?: string | null };
+      const saved = JSON.parse(raw) as {
+        user?: PiUser | null;
+        accessToken?: string | null;
+        ticketRound?: number | null;
+        streakDays?: number;
+        freeCredits?: number;
+      };
       if (saved.user && saved.accessToken) {
         setUser(saved.user);
         setAccessToken(saved.accessToken);
-        setConnectionState("connected");
-        setWalletStatusLoaded(false);
+        // Restore local ticket/streak state so the UI reflects it even
+        // before the DB round-trip completes.
+        if (saved.ticketRound != null) {
+          setWalletStatus({
+            wallet: null,
+            round: null,
+            hasBaseTicket: saved.ticketRound === getCurrentRoundNumber(),
+            hasCreditTicket: false,
+          });
+          setWalletStatusLoaded(true);
+        }
+        if (saved.streakDays != null || saved.freeCredits != null) {
+          setWalletStatus((prev) => ({
+            wallet: {
+              walletKey: saved.user?.uid || "",
+              uid: saved.user?.uid || "",
+              username: saved.user?.username || "",
+              walletAddress: null,
+              streakDays: saved.streakDays ?? (prev?.wallet?.streakDays ?? 0),
+              highestMilestoneDays: 0,
+              freeCredits: saved.freeCredits ?? (prev?.wallet?.freeCredits ?? 0),
+              lastJoinedOn: null,
+              creditCooldownUntil: null,
+            },
+            round: prev?.round ?? null,
+            hasBaseTicket: prev?.hasBaseTicket ?? false,
+            hasCreditTicket: prev?.hasCreditTicket ?? false,
+          }));
+          setWalletStatusLoaded(true);
+        }
       }
     } catch (err) {
       console.warn("Failed to restore PiLuck session:", err);
@@ -260,10 +304,21 @@ export function usePiSDK() {
       setWalletStatusLoaded(false);
 
       // Persist the session so the wallet stays connected after a refresh.
+      // Also save the current ticket/streak state so the UI reflects it
+      // immediately on reload, even before the DB round-trip completes.
       try {
+        const existing = JSON.parse(
+          window.localStorage.getItem(SESSION_STORAGE_KEY) || "{}"
+        );
         window.localStorage.setItem(
           SESSION_STORAGE_KEY,
-          JSON.stringify({ user: result.user, accessToken: result.accessToken })
+          JSON.stringify({
+            user: result.user,
+            accessToken: result.accessToken,
+            ticketRound: existing.ticketRound ?? null,
+            streakDays: existing.streakDays ?? 0,
+            freeCredits: existing.freeCredits ?? 0,
+          })
         );
       } catch (err) {
         console.warn("Failed to persist PiLuck session:", err);
@@ -406,6 +461,38 @@ export function usePiSDK() {
             }).catch((err: unknown) => {
               console.warn("Streak claim sync failed:", err);
             });
+
+            // Persist the ticket round and increment streak locally so the
+            // UI reflects the one-ticket-per-round rule and streak updates
+            // immediately, even before the DB round-trip completes.
+            try {
+              const currentRound = getCurrentRoundNumber();
+              const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+              const saved = raw ? JSON.parse(raw) : {};
+              const today = new Date().toISOString().slice(0, 10);
+              const lastJoined = saved.lastJoinedOn || "";
+              const yesterday = new Date(Date.now() - 86400000)
+                .toISOString()
+                .slice(0, 10);
+              const nextStreak =
+                lastJoined === yesterday
+                  ? (saved.streakDays || 0) + 1
+                  : lastJoined === today
+                    ? saved.streakDays || 0
+                    : 1;
+              window.localStorage.setItem(
+                SESSION_STORAGE_KEY,
+                JSON.stringify({
+                  ...saved,
+                  ticketRound: currentRound,
+                  streakDays: nextStreak,
+                  lastJoinedOn: today,
+                })
+              );
+            } catch (err) {
+              console.warn("Failed to persist ticket/streak locally:", err);
+            }
+
             setIsProcessing(false);
             resolve({ success: true, paymentId, txid });
           },

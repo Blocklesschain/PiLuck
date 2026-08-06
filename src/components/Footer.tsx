@@ -36,11 +36,10 @@ export default function Footer() {
         <li key={link.label}>
           <Link
             href={link.href}
-            className={`text-sm transition-colors ${
-              isActive
-                ? "text-white font-semibold"
-                : "text-white/50 hover:text-white"
-            }`}
+            className={`text-sm transition-colors ${isActive
+              ? "text-white font-semibold"
+              : "text-white/50 hover:text-white"
+              }`}
           >
             {link.label}
           </Link>
@@ -56,7 +55,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <SiteLogo className="mb-4" />
             <p className="text-sm text-white/50 leading-relaxed">
-              The Community Luck Platform for Pioneers. One base ticket per wallet,
+              World Jackpot Platform for Pioneers. One base ticket per wallet,
               plus free streak credits. Equal Opportunity.
             </p>
           </div>
@@ -95,6 +94,12 @@ export default function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (typeof window !== "undefined") {
+                        window.open(link.href, "_system");
+                      }
+                    }}
                     className="text-sm text-white/50 hover:text-white transition-colors"
                   >
                     {link.label}

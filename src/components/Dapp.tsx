@@ -32,6 +32,8 @@ export default function Dapp() {
     piBrowser,
     connectionState,
     user,
+    piBalance,
+    piBalanceLoaded,
     error: piError,
     isProcessing,
     walletStatus,
@@ -162,6 +164,11 @@ export default function Dapp() {
                 <p className="text-sm text-white/60">
                   {isConnected ? `Connected as @${user?.username}` : "Authenticate with Pi Network"}
                 </p>
+                {isConnected && (
+                  <p className="text-xs text-pi-gold-300 mt-1">
+                    Balance: {piBalanceLoaded ? (piBalance.nativeBalance ?? "unavailable") : "loading..."} Test Pi
+                  </p>
+                )}
               </div>
               {isConnected && (
                 <button

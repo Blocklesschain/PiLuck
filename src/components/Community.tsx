@@ -11,6 +11,14 @@ const communityLinks = [
   { icon: Twitter, label: "X (Twitter)", href: "https://x.com/Pi_Luck", color: "text-white" },
 ];
 
+function openExternal(url: string) {
+  // Pi Browser WebView blocks target="_blank". Use _system to open in the
+  // device's default browser instead.
+  if (typeof window !== "undefined") {
+    window.open(url, "_system");
+  }
+}
+
 export default function Community() {
   return (
     <section id="community" className="relative py-20 md:py-28 overflow-hidden">
@@ -38,6 +46,10 @@ export default function Community() {
             <motion.a
               key={link.label}
               href={link.href}
+              onClick={(e) => {
+                e.preventDefault();
+                openExternal(link.href);
+              }}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
