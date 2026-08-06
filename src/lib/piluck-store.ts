@@ -590,6 +590,47 @@ export async function recordPaymentCompletion(params: {
   };
 }
 
+export async function getPastWinners(limit = 20) {
+  await ensureSchema();
+
+  const rounds = await sql`
+    SELECT
+      r.round_number,
+      r.status,
+      r.total_pool_pi,
+      r.treasury_pi,
+      r.total_base_entries,
+      r.total_credit_entries,
+      r.closed_at,
+      t.wallet_key,
+      t.ticket_type,
+      t.payment_id,
+      t.amount_pi,
+      u.username
+    FROM piluck_rounds r
+    JOIN piluck_tickets t ON t.round_number = r.round_number
+    JOIN piluck_users u ON u.wallet_key = t.wallet_key
+    WHERE r.status IN ('closed', 'refunded')
+      AND t.metadata->>'winner' = 'true'
+    ORDER BY r.round_number DESC, t.created_at ASC
+    LIMIT ${limit}
+  `;
+
+  return rounds.rows.map((row) => ({
+    roundNumber: Number(row.round_number),
+    status: String(row.status),
+    totalPoolPi: Number(row.total_pool_pi),
+    treasuryPi: Number(row.treasury_pi),
+    totalBaseEntries: Number(row.total_base_entries),
+    totalCreditEntries: Number(row.total_credit_entries),
+    closedAt: row.closed_at ? new Date(String(row.closed_at)).toISOString() : null,
+    winnerUsername: String(row.username),
+    ticketType: String(row.ticket_type),
+    paymentId: String(row.payment_id),
+    amountPi: Number(row.amount_pi),
+  }));
+}
+
 export async function closeCurrentRoundAndSelectWinners() {
   await ensureSchema();
 

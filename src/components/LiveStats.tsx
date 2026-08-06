@@ -185,7 +185,7 @@ export default function LiveStats() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pi-gold-500/20 to-pi-purple-500/20 flex items-center justify-center mx-auto mb-4">
                 <Timer className="w-6 h-6 text-pi-gold-300" />
               </div>
-              <p className="text-2xl font-bold text-gradient-gold mb-1 font-mono">
+              <p className="text-xl sm:text-2xl font-bold text-gradient-gold mb-1 font-mono tracking-wider">
                 {countdown || "00:00:00"}
               </p>
               <p className="text-xs text-white/60">Next Round starts in</p>
