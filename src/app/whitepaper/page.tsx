@@ -26,7 +26,7 @@ export default function WhitepaperPage() {
         </h1>
 
         <p className="text-lg text-white/70 text-center max-w-3xl mx-auto mb-12">
-          The Community Luck Platform for Pioneers
+          World Jackpot Platform for Pioneers
         </p>
 
         <div className="glass-card p-8 max-w-4xl mx-auto space-y-8">

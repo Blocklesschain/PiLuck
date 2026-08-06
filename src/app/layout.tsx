@@ -14,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "PiLuck — The Community Luck Platform for Pioneers",
+  title: "PiLuck — World Jackpot Platform for Pioneers",
   description:
     "PiLuck is a transparent, fair, community-first Luck draw platform built for the Pi Network ecosystem. One base ticket per wallet, plus free streak credits. Equal Opportunity.",
   keywords: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     "Pi ecosystem",
   ],
   openGraph: {
-    title: "PiLuck — The Community Luck Platform for Pioneers",
+    title: "PiLuck — World Jackpot Platform for Pioneers",
     description:
       "One base ticket per wallet, free streak credits, and equal opportunity for Pi Network users.",
     type: "website",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "PiLuck — The Community Luck Platform for Pioneers",
+    title: "PiLuck — World Jackpot Platform for Pioneers",
     description:
       "One base ticket per wallet, free streak credits, and equal opportunity for Pi Network users.",
   },
