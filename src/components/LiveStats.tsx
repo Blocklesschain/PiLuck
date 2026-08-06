@@ -28,6 +28,7 @@ interface LiveStatsData {
   totalDistributedPi: number;
   totalWinners: number;
   treasuryPi: number;
+  roundEndsAt: string | null;
 }
 
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: { value: number; prefix?: string; suffix?: string; decimals?: number }) {
@@ -97,10 +98,30 @@ export default function LiveStats() {
     };
   }, []);
 
+  const [countdown, setCountdown] = useState("");
+
+  // Live countdown timer that updates every second
+  useEffect(() => {
+    if (!data?.roundEndsAt) return;
+    const update = () => {
+      const remaining = new Date(data.roundEndsAt!).getTime() - Date.now();
+      if (remaining <= 0) {
+        setCountdown("00:00:00");
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [data?.roundEndsAt]);
+
   const stats: Stat[] = [
     { icon: Coins, label: "Current Jackpot", value: data?.currentJackpotPi ?? 0, prefix: "", suffix: " Pi", decimals: 2 },
     { icon: Timer, label: "Current Round", value: data?.currentRound ?? 0, prefix: "#" },
-    { icon: Timer, label: "Hours Remaining", value: data?.hoursRemaining ?? 0, suffix: "h" },
     { icon: Users, label: "Participants", value: data?.participants ?? 0 },
     { icon: Trophy, label: "Total Pi Distributed", value: data?.totalDistributedPi ?? 0, suffix: " Pi", decimals: 2 },
     { icon: Award, label: "Total Winners", value: data?.totalWinners ?? 0 },
@@ -151,6 +172,25 @@ export default function LiveStats() {
               <p className="text-xs text-white/60">{stat.label}</p>
             </motion.div>
           ))}
+
+          {/* Live Countdown */}
+          {data?.roundEndsAt && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+              className="glass-card-hover p-6 text-center md:col-span-3"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pi-gold-500/20 to-pi-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                <Timer className="w-6 h-6 text-pi-gold-300" />
+              </div>
+              <p className="text-2xl font-bold text-gradient-gold mb-1 font-mono">
+                {countdown || "00:00:00"}
+              </p>
+              <p className="text-xs text-white/60">Next Round starts in</p>
+            </motion.div>
+          )}
         </div>
 
         <motion.div

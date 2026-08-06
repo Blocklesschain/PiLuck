@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       totalDistributedPi: totals.totalPoolPi,
       totalWinners: totals.roundsCount * 9,
       treasuryPi: Number(round.treasuryPi ?? 0),
+      roundEndsAt: round.endsAt.toISOString(),
     },
   });
 }

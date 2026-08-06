@@ -191,11 +191,9 @@ export function usePiSDK() {
   }, []);
 
   // Restore a previously saved session when the page refreshes.
-  // IMPORTANT: We restore the user info for display, but we do NOT set
-  // connectionState to "connected" because the Pi SDK's internal auth state
-  // is lost on refresh. The user must re-authenticate to make payments.
-  // Without a fresh Pi.authenticate(), Pi.createPayment() will fail with
-  // "Cannot create a payment without payment scope".
+  // The wallet stays connected until the user manually disconnects.
+  // If the Pi SDK's internal auth state is lost (e.g., after a long time),
+  // a silent re-authentication happens when the user tries to make a payment.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -211,6 +209,7 @@ export function usePiSDK() {
       if (saved.user && saved.accessToken) {
         setUser(saved.user);
         setAccessToken(saved.accessToken);
+        setConnectionState("connected");
         // Restore local ticket/streak state so the UI reflects it even
         // before the DB round-trip completes.
         if (saved.ticketRound != null) {

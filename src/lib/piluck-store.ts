@@ -590,6 +590,93 @@ export async function recordPaymentCompletion(params: {
   };
 }
 
+export async function closeCurrentRoundAndSelectWinners() {
+  await ensureSchema();
+
+  const round = await getOrCreateCurrentRound();
+  const now = new Date();
+
+  // Only close if the round has actually ended
+  if (now < round.endsAt) {
+    return { closed: false, reason: "round_still_active" };
+  }
+
+  if (round.status === "closed") {
+    return { closed: false, reason: "already_closed" };
+  }
+
+  const totalParticipants = round.totalBaseEntries + round.totalCreditEntries;
+
+  // If fewer than 9 participants, refund everyone (minus 10% treasury)
+  if (totalParticipants < 9) {
+    // Mark all payments in this round as refunded
+    await sql`
+      UPDATE piluck_payments
+      SET status = 'refunded', updated_at = NOW()
+      WHERE round_number = ${round.roundNumber}
+        AND status = 'completed'
+    `;
+
+    // Close the round
+    await sql`
+      UPDATE piluck_rounds
+      SET
+        status = 'refunded',
+        closed_at = NOW(),
+        updated_at = NOW()
+      WHERE round_number = ${round.roundNumber}
+    `;
+
+    return {
+      closed: true,
+      refunded: true,
+      reason: "insufficient_participants",
+      participants: totalParticipants,
+      treasuryPi: Number(round.treasuryPi),
+    };
+  }
+
+  // Select 9 random winners from the tickets
+  const tickets = await sql`
+    SELECT DISTINCT wallet_key
+    FROM piluck_tickets
+    WHERE round_number = ${round.roundNumber}
+  `;
+
+  const allWallets = tickets.rows.map((r) => String(r.wallet_key));
+  const shuffled = [...allWallets].sort(() => Math.random() - 0.5);
+  const winners = shuffled.slice(0, 9);
+
+  // Record winners
+  for (const walletKey of winners) {
+    await sql`
+      UPDATE piluck_tickets
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('winner', true)
+      WHERE wallet_key = ${walletKey}
+        AND round_number = ${round.roundNumber}
+    `;
+  }
+
+  // Close the round
+  await sql`
+    UPDATE piluck_rounds
+    SET
+      status = 'closed',
+      closed_at = NOW(),
+      updated_at = NOW()
+    WHERE round_number = ${round.roundNumber}
+  `;
+
+  return {
+    closed: true,
+    refunded: false,
+    winners: winners.length,
+    participants: totalParticipants,
+    poolPi: Number(round.totalPoolPi),
+    treasuryPi: Number(round.treasuryPi),
+  };
+}
+
 function mapRound(row: Record<string, unknown>): RoundRecord {
   return {
     roundNumber: Number(row.round_number),
