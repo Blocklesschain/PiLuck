@@ -1,8 +1,6 @@
 import postgres from "postgres";
+import { createPiPayout } from "@/lib/pi-platform";
 
-// Use postgres.js for the data layer. It works reliably with any Postgres
-// connection string (Vercel Postgres, Supabase, Neon, etc.), unlike
-// @vercel/postgres which rejects non-"-pooler." Supabase URLs.
 const connectionString =
   (process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING)?.trim() ||
   "";
@@ -13,7 +11,6 @@ const pg = postgres(connectionString, {
   connect_timeout: 10,
 });
 
-// Adapter returning the { rows } shape expected by the rest of this module.
 type AnyRow = Record<string, unknown>;
 async function sql<T = AnyRow>(
   strings: TemplateStringsArray,
@@ -25,9 +22,8 @@ async function sql<T = AnyRow>(
 
 export const ROUND_DURATION_MS = 12 * 60 * 60 * 1000;
 
-// Fixed epoch so round numbers start from 1.
-// 2025-01-01T00:00:00Z = 1735689600000
-const ROUND_EPOCH_MS = 1735689600000;
+// Epoch set to the start of the current 12-hour window so round #1 begins now.
+const ROUND_EPOCH_MS = Math.floor(Date.now() / ROUND_DURATION_MS) * ROUND_DURATION_MS;
 
 const STREAK_MILESTONES = [
   { days: 7, credits: 1 },
@@ -181,6 +177,8 @@ export async function ensureSchema() {
           credits_spent integer NOT NULL DEFAULT 0,
           amount_pi numeric(18, 8) NOT NULL DEFAULT 0,
           is_winner boolean NOT NULL DEFAULT false,
+          payout_payment_id text,
+          payout_amount_pi numeric(18, 8),
           created_at timestamptz NOT NULL DEFAULT NOW()
         )
       `;
@@ -194,6 +192,25 @@ export async function ensureSchema() {
             WHERE table_name = 'piluck_tickets' AND column_name = 'is_winner'
           ) THEN
             ALTER TABLE piluck_tickets ADD COLUMN is_winner boolean NOT NULL DEFAULT false;
+          END IF;
+        END $$;
+      `;
+
+      // Migration: add payout columns if they don't exist yet
+      await sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'piluck_tickets' AND column_name = 'payout_payment_id'
+          ) THEN
+            ALTER TABLE piluck_tickets ADD COLUMN payout_payment_id text;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'piluck_tickets' AND column_name = 'payout_amount_pi'
+          ) THEN
+            ALTER TABLE piluck_tickets ADD COLUMN payout_amount_pi numeric(18, 8);
           END IF;
         END $$;
       `;
@@ -238,10 +255,7 @@ export async function getOrCreateCurrentRound(now: Date = new Date()) {
   if (existing.rows.length === 0) {
     const inserted = await sql`
       INSERT INTO piluck_rounds (
-        round_number,
-        status,
-        starts_at,
-        ends_at
+        round_number, status, starts_at, ends_at
       ) VALUES (
         ${roundNumber},
         ${now < endsAt ? "active" : "closed"},
@@ -298,6 +312,7 @@ export async function getRoundTotals() {
       COALESCE(SUM(treasury_pi), 0) AS total_treasury_pi,
       COUNT(*)::int AS rounds_count
     FROM piluck_rounds
+    WHERE round_number >= 1
   `;
 
   let totalWinners = 0;
@@ -569,7 +584,8 @@ export async function getPastWinners(limit = 20) {
       SELECT
         r.round_number, r.status, r.total_pool_pi, r.treasury_pi,
         r.total_base_entries, r.total_credit_entries, r.closed_at,
-        t.wallet_key, t.ticket_type, t.payment_id, t.amount_pi, u.username
+        t.wallet_key, t.ticket_type, t.payment_id, t.amount_pi,
+        t.payout_payment_id, t.payout_amount_pi, u.username
       FROM piluck_rounds r
       JOIN piluck_tickets t ON t.round_number = r.round_number
       JOIN piluck_users u ON u.wallet_key = t.wallet_key
@@ -591,6 +607,8 @@ export async function getPastWinners(limit = 20) {
       ticketType: String(row.ticket_type),
       paymentId: String(row.payment_id),
       amountPi: Number(row.amount_pi),
+      payoutPaymentId: row.payout_payment_id ? String(row.payout_payment_id) : null,
+      payoutAmountPi: row.payout_amount_pi ? Number(row.payout_amount_pi) : null,
     }));
   } catch {
     return [];
@@ -615,26 +633,86 @@ export async function closeCurrentRoundAndSelectWinners() {
 
   // Select all unique participants as winners.
   // Up to 9 winners, but if fewer than 9 participants, ALL participants win.
-  // Everyone who entered gets a share of the pool (minus 10% treasury).
   const tickets = await sql`
-    SELECT DISTINCT wallet_key
-    FROM piluck_tickets
-    WHERE round_number = ${round.roundNumber}
+    SELECT DISTINCT t.wallet_key, u.uid, u.username
+    FROM piluck_tickets t
+    JOIN piluck_users u ON u.wallet_key = t.wallet_key
+    WHERE t.round_number = ${round.roundNumber}
   `;
 
-  const allWallets = tickets.rows.map((r) => String(r.wallet_key));
+  const allWallets = tickets.rows.map((r) => ({
+    walletKey: String(r.wallet_key),
+    uid: String(r.uid),
+    username: String(r.username),
+  }));
+
   const maxWinners = Math.min(9, allWallets.length);
   const shuffled = [...allWallets].sort(() => Math.random() - 0.5);
   const winners = shuffled.slice(0, maxWinners);
 
-  // Record winners using the is_winner boolean column
-  for (const walletKey of winners) {
+  // Calculate payout per winner: (total pool - treasury) / number of winners
+  // Treasury is 10% of total pool, so winners split the remaining 90%
+  const poolPi = Number(round.totalPoolPi);
+  const treasuryPi = Number(round.treasuryPi);
+  const distributablePi = poolPi - treasuryPi;
+  const payoutPerWinner = maxWinners > 0
+    ? Number((distributablePi / maxWinners).toFixed(8))
+    : 0;
+
+  // Record winners and process payouts
+  const payoutResults: Array<{ walletKey: string; uid: string; username: string; payoutPaymentId: string | null; error?: string }> = [];
+
+  for (const winner of winners) {
+    // Mark as winner
     await sql`
       UPDATE piluck_tickets
       SET is_winner = true
-      WHERE wallet_key = ${walletKey}
+      WHERE wallet_key = ${winner.walletKey}
         AND round_number = ${round.roundNumber}
     `;
+
+    // Process automatic payout via Pi Platform API
+    let payoutPaymentId: string | null = null;
+    let payoutError: string | undefined;
+
+    if (payoutPerWinner > 0) {
+      try {
+        const payout = await createPiPayout({
+          amount: payoutPerWinner,
+          memo: `PiLuck Round #${round.roundNumber} Winner Payout - ${payoutPerWinner} Pi`,
+          uid: winner.uid,
+          metadata: {
+            type: "winner_payout",
+            roundNumber: round.roundNumber,
+            winnersCount: maxWinners,
+            poolPi,
+            treasuryPi,
+          },
+        });
+
+        payoutPaymentId = payout.paymentId;
+
+        // Record the payout on the ticket
+        await sql`
+          UPDATE piluck_tickets
+          SET payout_payment_id = ${payoutPaymentId},
+              payout_amount_pi = ${payoutPerWinner}
+          WHERE wallet_key = ${winner.walletKey}
+            AND round_number = ${round.roundNumber}
+        `;
+      } catch (err) {
+        payoutError = err instanceof Error ? err.message : "Payout failed";
+        console.warn(`Payout failed for ${winner.username} (${winner.uid}):`, payoutError);
+      }
+    }
+
+    payoutResults.push({
+      walletKey: winner.walletKey,
+      uid: winner.uid,
+      username: winner.username,
+      payoutPaymentId,
+      error: payoutError,
+    });
   }
 
   // Update the round's winners_count and close it
@@ -653,8 +731,10 @@ export async function closeCurrentRoundAndSelectWinners() {
     refunded: false,
     winners: winners.length,
     participants: totalParticipants,
-    poolPi: Number(round.totalPoolPi),
-    treasuryPi: Number(round.treasuryPi),
+    poolPi,
+    treasuryPi,
+    payoutPerWinner,
+    payouts: payoutResults,
   };
 }
 

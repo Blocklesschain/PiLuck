@@ -70,6 +70,54 @@ export async function completePiPayment(paymentId: string, txid: string) {
   return parsed.payload;
 }
 
+/**
+ * Create a server-side payout to a winner.
+ * Uses the Pi Platform API to send Pi from the app wallet to the winner.
+ * Returns the paymentId which can be used to track the payout.
+ */
+export async function createPiPayout(params: {
+  amount: number;
+  memo: string;
+  uid: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ paymentId: string }> {
+  const response = await fetch(`${PI_PLATFORM_API_BASE_URL}/payments`, {
+    method: "POST",
+    headers: getServerHeaders(),
+    body: JSON.stringify({
+      amount: params.amount,
+      memo: params.memo,
+      metadata: params.metadata ?? {},
+      uid: params.uid,
+    }),
+  });
+
+  const parsed = await parseJsonResponse(response);
+
+  if (!parsed.ok || !parsed.payload || typeof parsed.payload !== "object") {
+    throw new Error("Pi payout creation failed.");
+  }
+
+  const payload = parsed.payload as { paymentId?: string; identifier?: string };
+  const paymentId = payload.paymentId || payload.identifier;
+
+  if (!paymentId) {
+    throw new Error("Pi payout creation returned no payment ID.");
+  }
+
+  // Approve the payout immediately
+  await approvePiPayment(paymentId);
+
+  return { paymentId };
+}
+
+/**
+ * Submit a payout transaction ID to complete the payout.
+ */
+export async function submitPayoutTxid(paymentId: string, txid: string) {
+  return completePiPayment(paymentId, txid);
+}
+
 export type PiWalletBalance = {
   nativeBalance: string | null;
   accountId: string;
