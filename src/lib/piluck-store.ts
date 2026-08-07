@@ -87,12 +87,10 @@ function addDays(value: Date, days: number) {
 }
 
 function getRoundNumber(now: Date = new Date()) {
-  // Round numbers start from 1 based on the fixed epoch
   return Math.floor((now.getTime() - ROUND_EPOCH_MS) / ROUND_DURATION_MS) + 1;
 }
 
 function getRoundBounds(roundNumber: number) {
-  // Convert round number back to epoch-based time
   const startsAt = new Date(ROUND_EPOCH_MS + (roundNumber - 1) * ROUND_DURATION_MS);
   return {
     startsAt,
@@ -106,7 +104,6 @@ function getHighestMilestone(streakDays: number) {
       return STREAK_MILESTONES[index];
     }
   }
-
   return null;
 }
 
@@ -253,7 +250,6 @@ export async function getOrCreateCurrentRound(now: Date = new Date()) {
       )
       RETURNING *
     `;
-
     return mapRound(inserted.rows[0]);
   }
 
@@ -265,7 +261,6 @@ export async function getOrCreateCurrentRound(now: Date = new Date()) {
       WHERE round_number = ${roundNumber}
       RETURNING *
     `;
-
     return mapRound(closed.rows[0]);
   }
 
@@ -278,17 +273,10 @@ export async function upsertWallet(identity: WalletIdentity) {
   const walletKey = normalizeWalletKey(identity);
   await sql`
     INSERT INTO piluck_users (
-      wallet_key,
-      uid,
-      username,
-      wallet_address,
-      updated_at
+      wallet_key, uid, username, wallet_address, updated_at
     ) VALUES (
-      ${walletKey},
-      ${identity.uid},
-      ${identity.username},
-      ${identity.walletAddress ?? null},
-      NOW()
+      ${walletKey}, ${identity.uid}, ${identity.username},
+      ${identity.walletAddress ?? null}, NOW()
     )
     ON CONFLICT (wallet_key) DO UPDATE SET
       uid = EXCLUDED.uid,
@@ -312,9 +300,6 @@ export async function getRoundTotals() {
     FROM piluck_rounds
   `;
 
-  // Count actual winners across all closed rounds.
-  // Wrapped in try/catch in case the is_winner column doesn't exist yet
-  // (migration may not have run on first deploy).
   let totalWinners = 0;
   try {
     const winnerCount = await sql`
@@ -325,7 +310,6 @@ export async function getRoundTotals() {
     const winnerRow = winnerCount.rows[0] ?? {};
     totalWinners = Number(winnerRow.total_winners ?? 0);
   } catch {
-    // Column doesn't exist yet — fall back to 0
     totalWinners = 0;
   }
 
@@ -344,10 +328,7 @@ export async function getWalletRoundStatus(identity: WalletIdentity) {
   await ensureSchema();
 
   const wallet = await upsertWallet(identity);
-
-  if (!wallet) {
-    throw new Error("Wallet state could not be created.");
-  }
+  if (!wallet) throw new Error("Wallet state could not be created.");
 
   const round = await getOrCreateCurrentRound();
   const walletKey = normalizeWalletKey(identity);
@@ -376,10 +357,7 @@ export async function getWalletState(walletKey: string) {
     SELECT * FROM piluck_users WHERE wallet_key = ${walletKey} LIMIT 1
   `;
 
-  if (result.rows.length === 0) {
-    return null;
-  }
-
+  if (result.rows.length === 0) return null;
   return mapWallet(result.rows[0]);
 }
 
@@ -390,9 +368,7 @@ export async function claimDailyStreak(identity: WalletIdentity) {
   const wallet = await upsertWallet(identity);
   const now = new Date();
 
-  if (!wallet) {
-    throw new Error("Wallet state could not be created.");
-  }
+  if (!wallet) throw new Error("Wallet state could not be created.");
 
   const today = getDateOnly(now);
   if (wallet.lastJoinedOn === today) {
@@ -439,21 +415,10 @@ export async function spendCredits(identity: WalletIdentity, quantity: number) {
   const walletKey = normalizeWalletKey(identity);
   const wallet = await upsertWallet(identity);
 
-  if (!wallet) {
-    throw new Error("Wallet state could not be created.");
-  }
-
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    throw new Error("Credit quantity must be at least 1.");
-  }
-
-  if (wallet.freeCredits < quantity) {
-    throw new Error("Not enough credits available.");
-  }
-
-  if (wallet.creditCooldownUntil && wallet.creditCooldownUntil > new Date()) {
-    throw new Error("Credit cooldown is still active.");
-  }
+  if (!wallet) throw new Error("Wallet state could not be created.");
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error("Credit quantity must be at least 1.");
+  if (wallet.freeCredits < quantity) throw new Error("Not enough credits available.");
+  if (wallet.creditCooldownUntil && wallet.creditCooldownUntil > new Date()) throw new Error("Credit cooldown is still active.");
 
   const nextCooldown = new Date(Date.now() + quantity * 60 * 60 * 1000);
   const updated = await sql`
@@ -481,36 +446,18 @@ export async function recordPaymentApproval(params: {
 
   const round = await getOrCreateCurrentRound();
   const wallet = await upsertWallet(params.identity);
-
-  if (!wallet) {
-    throw new Error("Wallet state could not be created.");
-  }
+  if (!wallet) throw new Error("Wallet state could not be created.");
 
   await sql`
     INSERT INTO piluck_payments (
-      payment_id,
-      wallet_key,
-      uid,
-      username,
-      round_number,
-      amount_pi,
-      memo,
-      metadata,
-      status,
-      approved_at,
-      updated_at
+      payment_id, wallet_key, uid, username, round_number,
+      amount_pi, memo, metadata, status, approved_at, updated_at
     ) VALUES (
-      ${params.paymentId},
-      ${wallet.walletKey},
-      ${params.identity.uid},
-      ${params.identity.username},
-      ${params.roundNumber ?? round.roundNumber},
-      ${params.amountPi},
-      ${params.memo},
+      ${params.paymentId}, ${wallet.walletKey}, ${params.identity.uid},
+      ${params.identity.username}, ${params.roundNumber ?? round.roundNumber},
+      ${params.amountPi}, ${params.memo},
       ${JSON.stringify(params.metadata)}::jsonb,
-      'approved',
-      NOW(),
-      NOW()
+      'approved', NOW(), NOW()
     )
     ON CONFLICT (payment_id) DO UPDATE SET
       wallet_key = EXCLUDED.wallet_key,
@@ -545,20 +492,13 @@ export async function recordPaymentCompletion(params: {
 
   const round = await getOrCreateCurrentRound();
   const wallet = await upsertWallet(params.identity);
-
-  if (!wallet) {
-    throw new Error("Wallet state could not be created.");
-  }
+  if (!wallet) throw new Error("Wallet state could not be created.");
 
   const paymentUpdate = await sql`
     UPDATE piluck_payments
-    SET
-      status = 'completed',
-      txid = ${params.txid},
-      completed_at = NOW(),
-      updated_at = NOW()
-    WHERE payment_id = ${params.paymentId}
-      AND status <> 'completed'
+    SET status = 'completed', txid = ${params.txid},
+        completed_at = NOW(), updated_at = NOW()
+    WHERE payment_id = ${params.paymentId} AND status <> 'completed'
     RETURNING *
   `;
 
@@ -573,18 +513,14 @@ export async function recordPaymentCompletion(params: {
   const effectiveRound = params.roundNumber ?? Number(paymentUpdate.rows[0].round_number ?? round.roundNumber);
   const ticketType = params.ticketType ?? "base";
 
-  // Enforce one BASE ticket per wallet per round. Credit entries are allowed
-  // multiple times per round, gated by the 1-hour cooldown in spendCredits.
   if (ticketType === "base") {
     const existingTicket = await sql`
-      SELECT id
-      FROM piluck_tickets
+      SELECT id FROM piluck_tickets
       WHERE wallet_key = ${wallet.walletKey}
         AND round_number = ${effectiveRound}
         AND ticket_type = 'base'
       LIMIT 1
     `;
-
     if (existingTicket.rows.length > 0) {
       return {
         walletKey: wallet.walletKey,
@@ -597,19 +533,10 @@ export async function recordPaymentCompletion(params: {
 
   await sql`
     INSERT INTO piluck_tickets (
-      wallet_key,
-      round_number,
-      ticket_type,
-      payment_id,
-      credits_spent,
-      amount_pi
+      wallet_key, round_number, ticket_type, payment_id, credits_spent, amount_pi
     ) VALUES (
-      ${wallet.walletKey},
-      ${effectiveRound},
-      ${ticketType},
-      ${params.paymentId},
-      ${ticketType === "credit" ? 1 : 0},
-      ${params.amountPi}
+      ${wallet.walletKey}, ${effectiveRound}, ${ticketType},
+      ${params.paymentId}, ${ticketType === "credit" ? 1 : 0}, ${params.amountPi}
     )
     ON CONFLICT (payment_id) DO NOTHING
   `;
@@ -637,22 +564,12 @@ export async function recordPaymentCompletion(params: {
 export async function getPastWinners(limit = 20) {
   await ensureSchema();
 
-  // Wrapped in try/catch in case the is_winner column doesn't exist yet
   try {
     const rounds = await sql`
       SELECT
-        r.round_number,
-        r.status,
-        r.total_pool_pi,
-        r.treasury_pi,
-        r.total_base_entries,
-        r.total_credit_entries,
-        r.closed_at,
-        t.wallet_key,
-        t.ticket_type,
-        t.payment_id,
-        t.amount_pi,
-        u.username
+        r.round_number, r.status, r.total_pool_pi, r.treasury_pi,
+        r.total_base_entries, r.total_credit_entries, r.closed_at,
+        t.wallet_key, t.ticket_type, t.payment_id, t.amount_pi, u.username
       FROM piluck_rounds r
       JOIN piluck_tickets t ON t.round_number = r.round_number
       JOIN piluck_users u ON u.wallet_key = t.wallet_key
@@ -676,7 +593,6 @@ export async function getPastWinners(limit = 20) {
       amountPi: Number(row.amount_pi),
     }));
   } catch {
-    // Column doesn't exist yet — return empty array
     return [];
   }
 }
@@ -687,7 +603,6 @@ export async function closeCurrentRoundAndSelectWinners() {
   const round = await getOrCreateCurrentRound();
   const now = new Date();
 
-  // Only close if the round has actually ended
   if (now < round.endsAt) {
     return { closed: false, reason: "round_still_active" };
   }
@@ -698,36 +613,9 @@ export async function closeCurrentRoundAndSelectWinners() {
 
   const totalParticipants = round.totalBaseEntries + round.totalCreditEntries;
 
-  // If fewer than 9 participants, refund everyone (minus 10% treasury)
-  if (totalParticipants < 9) {
-    // Mark all payments in this round as refunded
-    await sql`
-      UPDATE piluck_payments
-      SET status = 'refunded', updated_at = NOW()
-      WHERE round_number = ${round.roundNumber}
-        AND status = 'completed'
-    `;
-
-    // Close the round
-    await sql`
-      UPDATE piluck_rounds
-      SET
-        status = 'refunded',
-        closed_at = NOW(),
-        updated_at = NOW()
-      WHERE round_number = ${round.roundNumber}
-    `;
-
-    return {
-      closed: true,
-      refunded: true,
-      reason: "insufficient_participants",
-      participants: totalParticipants,
-      treasuryPi: Number(round.treasuryPi),
-    };
-  }
-
-  // Select winners: up to 9, but no more than the number of unique participants
+  // Select all unique participants as winners.
+  // Up to 9 winners, but if fewer than 9 participants, ALL participants win.
+  // Everyone who entered gets a share of the pool (minus 10% treasury).
   const tickets = await sql`
     SELECT DISTINCT wallet_key
     FROM piluck_tickets
