@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       hoursRemaining,
       participants: Number(round.totalBaseEntries ?? 0) + Number(round.totalCreditEntries ?? 0),
       totalDistributedPi: totals.totalPoolPi,
-      totalWinners: totals.roundsCount * 9,
+      totalWinners: totals.totalWinners,
       treasuryPi: Number(round.treasuryPi ?? 0),
       roundEndsAt: round.endsAt.toISOString(),
     },

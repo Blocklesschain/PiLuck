@@ -25,6 +25,10 @@ async function sql<T = AnyRow>(
 
 export const ROUND_DURATION_MS = 12 * 60 * 60 * 1000;
 
+// Fixed epoch so round numbers start from 1.
+// 2025-01-01T00:00:00Z = 1735689600000
+const ROUND_EPOCH_MS = 1735689600000;
+
 const STREAK_MILESTONES = [
   { days: 7, credits: 1 },
   { days: 15, credits: 3 },
@@ -83,11 +87,13 @@ function addDays(value: Date, days: number) {
 }
 
 function getRoundNumber(now: Date = new Date()) {
-  return Math.floor(now.getTime() / ROUND_DURATION_MS);
+  // Round numbers start from 1 based on the fixed epoch
+  return Math.floor((now.getTime() - ROUND_EPOCH_MS) / ROUND_DURATION_MS) + 1;
 }
 
 function getRoundBounds(roundNumber: number) {
-  const startsAt = new Date(roundNumber * ROUND_DURATION_MS);
+  // Convert round number back to epoch-based time
+  const startsAt = new Date(ROUND_EPOCH_MS + (roundNumber - 1) * ROUND_DURATION_MS);
   return {
     startsAt,
     endsAt: new Date(startsAt.getTime() + ROUND_DURATION_MS),
@@ -142,7 +148,7 @@ export async function ensureSchema() {
           total_credit_entries integer NOT NULL DEFAULT 0,
           total_pool_pi numeric(18, 8) NOT NULL DEFAULT 0,
           treasury_pi numeric(18, 8) NOT NULL DEFAULT 0,
-          winners_count integer NOT NULL DEFAULT 9,
+          winners_count integer NOT NULL DEFAULT 0,
           created_at timestamptz NOT NULL DEFAULT NOW(),
           updated_at timestamptz NOT NULL DEFAULT NOW(),
           closed_at timestamptz
@@ -177,6 +183,7 @@ export async function ensureSchema() {
           payment_id text UNIQUE,
           credits_spent integer NOT NULL DEFAULT 0,
           amount_pi numeric(18, 8) NOT NULL DEFAULT 0,
+          is_winner boolean NOT NULL DEFAULT false,
           created_at timestamptz NOT NULL DEFAULT NOW()
         )
       `;
@@ -195,6 +202,12 @@ export async function ensureSchema() {
       await sql`
         CREATE INDEX IF NOT EXISTS piluck_payments_wallet_idx
         ON piluck_payments (wallet_key, created_at DESC)
+      `;
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS piluck_tickets_winner_idx
+        ON piluck_tickets (round_number, is_winner)
+        WHERE is_winner = true
       `;
     })();
   }
@@ -286,13 +299,22 @@ export async function getRoundTotals() {
     FROM piluck_rounds
   `;
 
+  // Count actual winners across all closed rounds
+  const winnerCount = await sql`
+    SELECT COUNT(*)::int AS total_winners
+    FROM piluck_tickets
+    WHERE is_winner = true
+  `;
+
   const row = totals.rows[0] ?? {};
+  const winnerRow = winnerCount.rows[0] ?? {};
 
   return {
     totalEntries: Number(row.total_entries ?? 0),
     totalPoolPi: Number(row.total_pool_pi ?? 0),
     totalTreasuryPi: Number(row.total_treasury_pi ?? 0),
     roundsCount: Number(row.rounds_count ?? 0),
+    totalWinners: Number(winnerRow.total_winners ?? 0),
   };
 }
 
@@ -611,7 +633,7 @@ export async function getPastWinners(limit = 20) {
     JOIN piluck_tickets t ON t.round_number = r.round_number
     JOIN piluck_users u ON u.wallet_key = t.wallet_key
     WHERE r.status IN ('closed', 'refunded')
-      AND t.metadata->>'winner' = 'true'
+      AND t.is_winner = true
     ORDER BY r.round_number DESC, t.created_at ASC
     LIMIT ${limit}
   `;
@@ -642,7 +664,7 @@ export async function closeCurrentRoundAndSelectWinners() {
     return { closed: false, reason: "round_still_active" };
   }
 
-  if (round.status === "closed") {
+  if (round.status === "closed" || round.status === "refunded") {
     return { closed: false, reason: "already_closed" };
   }
 
@@ -677,7 +699,7 @@ export async function closeCurrentRoundAndSelectWinners() {
     };
   }
 
-  // Select 9 random winners from the tickets
+  // Select winners: up to 9, but no more than the number of unique participants
   const tickets = await sql`
     SELECT DISTINCT wallet_key
     FROM piluck_tickets
@@ -685,24 +707,26 @@ export async function closeCurrentRoundAndSelectWinners() {
   `;
 
   const allWallets = tickets.rows.map((r) => String(r.wallet_key));
+  const maxWinners = Math.min(9, allWallets.length);
   const shuffled = [...allWallets].sort(() => Math.random() - 0.5);
-  const winners = shuffled.slice(0, 9);
+  const winners = shuffled.slice(0, maxWinners);
 
-  // Record winners
+  // Record winners using the is_winner boolean column
   for (const walletKey of winners) {
     await sql`
       UPDATE piluck_tickets
-      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('winner', true)
+      SET is_winner = true
       WHERE wallet_key = ${walletKey}
         AND round_number = ${round.roundNumber}
     `;
   }
 
-  // Close the round
+  // Update the round's winners_count and close it
   await sql`
     UPDATE piluck_rounds
     SET
       status = 'closed',
+      winners_count = ${winners.length},
       closed_at = NOW(),
       updated_at = NOW()
     WHERE round_number = ${round.roundNumber}
@@ -729,7 +753,7 @@ function mapRound(row: Record<string, unknown>): RoundRecord {
     totalCreditEntries: Number(row.total_credit_entries ?? 0),
     totalPoolPi: String(row.total_pool_pi ?? "0"),
     treasuryPi: String(row.treasury_pi ?? "0"),
-    winnersCount: Number(row.winners_count ?? 9),
+    winnersCount: Number(row.winners_count ?? 0),
   };
 }
 

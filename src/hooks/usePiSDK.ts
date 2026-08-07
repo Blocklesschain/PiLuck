@@ -381,6 +381,8 @@ export function usePiSDK() {
   }, [piReady]);
 
   // Create a payment (buy lottery ticket with 1 Pi)
+  // If the Pi SDK has lost its auth scope (e.g. after page refresh with
+  // restored session), silently re-authenticate to regain "payments" scope.
   const createPayment = useCallback(
     async (amount: number, memo: string): Promise<PiPaymentResult> => {
       if (!piReady || !window.Pi || !accessToken) {
@@ -403,122 +405,181 @@ export function usePiSDK() {
 
       const pi = window.Pi;
 
-      return new Promise<PiPaymentResult>((resolve) => {
-        const paymentData: PiPaymentData = {
-          amount,
-          memo,
-          metadata: {
-            type: "lottery_ticket",
-            app: PI_APP_ID,
-            sandbox: PI_SANDBOX,
-            timestamp: Date.now(),
-            treasuryWallet: PI_TREASURY_WALLET_ADDRESS,
-            treasuryPercent: PI_TREASURY_PERCENT,
-            treasuryAmountPi: Number((amount * PI_TREASURY_PERCENT).toFixed(8)),
-          },
-        };
+      // Helper to execute the payment flow with given auth credentials
+      const executePayment = (
+        currentAccessToken: string,
+        currentUser: PiUser | null
+      ): Promise<PiPaymentResult> => {
+        return new Promise<PiPaymentResult>((resolve) => {
+          const paymentData: PiPaymentData = {
+            amount,
+            memo,
+            metadata: {
+              type: "lottery_ticket",
+              app: PI_APP_ID,
+              sandbox: PI_SANDBOX,
+              timestamp: Date.now(),
+              treasuryWallet: PI_TREASURY_WALLET_ADDRESS,
+              treasuryPercent: PI_TREASURY_PERCENT,
+              treasuryAmountPi: Number((amount * PI_TREASURY_PERCENT).toFixed(8)),
+            },
+          };
 
-        const callbacks: PiPaymentCallbacks = {
-          onReadyForServerApproval: (paymentId: string) => {
-            console.log("Ready for server approval:", paymentId);
-            void postJson("/api/pi/payments/approve", {
-              accessToken,
-              paymentId,
-              amountPi: amount,
-              memo,
-              uid: user?.uid || "",
-              username: user?.username || "",
-              walletAddress: getWalletAddress(user),
-              metadata: paymentData.metadata,
-            }).catch((err: unknown) => {
-              // The user's Pi has already been charged by this point. An
-              // approval sync error must NOT break the flow or show
-              // "Request failed" — completion is what determines success.
-              console.warn("Payment approval sync failed:", err);
-            });
-          },
-          onReadyForServerCompletion: (paymentId: string, txid: string) => {
-            console.log("Payment completed:", paymentId, txid);
-            void postJson("/api/pi/payments/complete", {
-              accessToken,
-              paymentId,
-              txid,
-              amountPi: amount,
-              memo,
-              uid: user?.uid || "",
-              username: user?.username || "",
-              walletAddress: getWalletAddress(user),
-              metadata: paymentData.metadata,
-            }).catch((err: unknown) => {
-              console.warn("Payment completion sync failed:", err);
-            });
-            void postJson("/api/credits/claim", {
-              accessToken,
-              uid: user?.uid || "",
-              username: user?.username || "",
-              walletAddress: getWalletAddress(user),
-            }).catch((err: unknown) => {
-              console.warn("Streak claim sync failed:", err);
-            });
+          const callbacks: PiPaymentCallbacks = {
+            onReadyForServerApproval: (paymentId: string) => {
+              console.log("Ready for server approval:", paymentId);
+              void postJson("/api/pi/payments/approve", {
+                accessToken: currentAccessToken,
+                paymentId,
+                amountPi: amount,
+                memo,
+                uid: currentUser?.uid || "",
+                username: currentUser?.username || "",
+                walletAddress: getWalletAddress(currentUser),
+                metadata: paymentData.metadata,
+              }).catch((err: unknown) => {
+                console.warn("Payment approval sync failed:", err);
+              });
+            },
+            onReadyForServerCompletion: (paymentId: string, txid: string) => {
+              console.log("Payment completed:", paymentId, txid);
+              void postJson("/api/pi/payments/complete", {
+                accessToken: currentAccessToken,
+                paymentId,
+                txid,
+                amountPi: amount,
+                memo,
+                uid: currentUser?.uid || "",
+                username: currentUser?.username || "",
+                walletAddress: getWalletAddress(currentUser),
+                metadata: paymentData.metadata,
+              }).catch((err: unknown) => {
+                console.warn("Payment completion sync failed:", err);
+              });
+              void postJson("/api/credits/claim", {
+                accessToken: currentAccessToken,
+                uid: currentUser?.uid || "",
+                username: currentUser?.username || "",
+                walletAddress: getWalletAddress(currentUser),
+              }).catch((err: unknown) => {
+                console.warn("Streak claim sync failed:", err);
+              });
 
-            // Persist the ticket round and increment streak locally so the
-            // UI reflects the one-ticket-per-round rule and streak updates
-            // immediately, even before the DB round-trip completes.
+              try {
+                const currentRound = getCurrentRoundNumber();
+                const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+                const saved = raw ? JSON.parse(raw) : {};
+                const today = new Date().toISOString().slice(0, 10);
+                const lastJoined = saved.lastJoinedOn || "";
+                const yesterday = new Date(Date.now() - 86400000)
+                  .toISOString()
+                  .slice(0, 10);
+                const nextStreak =
+                  lastJoined === yesterday
+                    ? (saved.streakDays || 0) + 1
+                    : lastJoined === today
+                      ? saved.streakDays || 0
+                      : 1;
+                window.localStorage.setItem(
+                  SESSION_STORAGE_KEY,
+                  JSON.stringify({
+                    ...saved,
+                    ticketRound: currentRound,
+                    streakDays: nextStreak,
+                    lastJoinedOn: today,
+                  })
+                );
+              } catch (err) {
+                console.warn("Failed to persist ticket/streak locally:", err);
+              }
+
+              setIsProcessing(false);
+              resolve({ success: true, paymentId, txid });
+            },
+            onCancel: (paymentId: string) => {
+              console.log("Payment cancelled:", paymentId);
+              setIsProcessing(false);
+              resolve({ success: false, error: "Payment cancelled by user." });
+            },
+            onError: (err: Error) => {
+              console.error("Payment error:", err);
+              setIsProcessing(false);
+              resolve({ success: false, error: err.message });
+            },
+          };
+
+          try {
+            pi.createPayment(paymentData, callbacks);
+          } catch (err) {
+            setIsProcessing(false);
+            resolve({
+              success: false,
+              error: err instanceof Error ? err.message : "Payment failed.",
+            });
+          }
+        });
+      };
+
+      // Attempt the payment. If the Pi SDK has lost its auth scope
+      // (e.g. after a page refresh with a restored session), silently
+      // re-authenticate to regain the "payments" scope and retry once.
+      try {
+        return await executePayment(accessToken, user);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Only re-auth for scope-related errors
+        if (
+          typeof msg === "string" &&
+          (msg.includes("payments") || msg.includes("scope"))
+        ) {
+          console.log("Pi SDK scope lost, re-authenticating silently...");
+          try {
+            const onIncompletePaymentFound = (payment: unknown) => {
+              console.log("Incomplete payment found:", payment);
+            };
+            const result: PiAuthResult = await pi.authenticate(
+              PI_SCOPE,
+              onIncompletePaymentFound
+            );
+            setUser(result.user);
+            setAccessToken(result.accessToken);
+            // Update persisted session with new token
             try {
-              const currentRound = getCurrentRoundNumber();
-              const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-              const saved = raw ? JSON.parse(raw) : {};
-              const today = new Date().toISOString().slice(0, 10);
-              const lastJoined = saved.lastJoinedOn || "";
-              const yesterday = new Date(Date.now() - 86400000)
-                .toISOString()
-                .slice(0, 10);
-              const nextStreak =
-                lastJoined === yesterday
-                  ? (saved.streakDays || 0) + 1
-                  : lastJoined === today
-                    ? saved.streakDays || 0
-                    : 1;
+              const existing = JSON.parse(
+                window.localStorage.getItem(SESSION_STORAGE_KEY) || "{}"
+              );
               window.localStorage.setItem(
                 SESSION_STORAGE_KEY,
                 JSON.stringify({
-                  ...saved,
-                  ticketRound: currentRound,
-                  streakDays: nextStreak,
-                  lastJoinedOn: today,
+                  ...existing,
+                  user: result.user,
+                  accessToken: result.accessToken,
                 })
               );
-            } catch (err) {
-              console.warn("Failed to persist ticket/streak locally:", err);
+            } catch (persistErr) {
+              console.warn("Failed to persist re-auth session:", persistErr);
             }
-
+            // Retry payment with fresh auth
+            return await executePayment(result.accessToken, result.user);
+          } catch (reauthErr) {
             setIsProcessing(false);
-            resolve({ success: true, paymentId, txid });
-          },
-          onCancel: (paymentId: string) => {
-            console.log("Payment cancelled:", paymentId);
-            setIsProcessing(false);
-            resolve({ success: false, error: "Payment cancelled by user." });
-          },
-          onError: (err: Error) => {
-            console.error("Payment error:", err);
-            setIsProcessing(false);
-            resolve({ success: false, error: err.message });
-          },
-        };
-
-        try {
-          pi.createPayment(paymentData, callbacks);
-        } catch (err) {
-          setIsProcessing(false);
-          resolve({
-            success: false,
-            error: err instanceof Error ? err.message : "Payment failed.",
-          });
+            return {
+              success: false,
+              error:
+                reauthErr instanceof Error
+                  ? reauthErr.message
+                  : "Re-authentication failed. Please reconnect your wallet.",
+            };
+          }
         }
-      });
+        setIsProcessing(false);
+        return {
+          success: false,
+          error: msg || "Payment failed.",
+        };
+      }
     },
-    [piReady, accessToken]
+    [piReady, accessToken, user]
   );
 
   // Refresh the wallet's round status (streaks, credits, ticket eligibility).
