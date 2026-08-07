@@ -303,8 +303,6 @@ export function usePiSDK() {
       setWalletStatusLoaded(false);
 
       // Persist the session so the wallet stays connected after a refresh.
-      // Also save the current ticket/streak state so the UI reflects it
-      // immediately on reload, even before the DB round-trip completes.
       try {
         const existing = JSON.parse(
           window.localStorage.getItem(SESSION_STORAGE_KEY) || "{}"
@@ -405,12 +403,14 @@ export function usePiSDK() {
 
       const pi = window.Pi;
 
-      // Helper to execute the payment flow with given auth credentials
+      // Helper to execute the payment flow with given auth credentials.
+      // IMPORTANT: on synchronous errors (like missing scope), this
+      // REJECTS the promise so the outer handler can catch and re-auth.
       const executePayment = (
         currentAccessToken: string,
         currentUser: PiUser | null
       ): Promise<PiPaymentResult> => {
-        return new Promise<PiPaymentResult>((resolve) => {
+        return new Promise<PiPaymentResult>((resolve, reject) => {
           const paymentData: PiPaymentData = {
             amount,
             memo,
@@ -511,11 +511,10 @@ export function usePiSDK() {
           try {
             pi.createPayment(paymentData, callbacks);
           } catch (err) {
+            // Synchronous error (e.g. missing "payments" scope).
+            // REJECT so the outer handler can catch and re-authenticate.
             setIsProcessing(false);
-            resolve({
-              success: false,
-              error: err instanceof Error ? err.message : "Payment failed.",
-            });
+            reject(err);
           }
         });
       };
