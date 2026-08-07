@@ -188,6 +188,19 @@ export async function ensureSchema() {
         )
       `;
 
+      // Migration: add is_winner column if the table was created before this column existed
+      await sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'piluck_tickets' AND column_name = 'is_winner'
+          ) THEN
+            ALTER TABLE piluck_tickets ADD COLUMN is_winner boolean NOT NULL DEFAULT false;
+          END IF;
+        END $$;
+      `;
+
       await sql`
         CREATE UNIQUE INDEX IF NOT EXISTS piluck_base_ticket_unique
         ON piluck_tickets (round_number, wallet_key)
@@ -299,22 +312,31 @@ export async function getRoundTotals() {
     FROM piluck_rounds
   `;
 
-  // Count actual winners across all closed rounds
-  const winnerCount = await sql`
-    SELECT COUNT(*)::int AS total_winners
-    FROM piluck_tickets
-    WHERE is_winner = true
-  `;
+  // Count actual winners across all closed rounds.
+  // Wrapped in try/catch in case the is_winner column doesn't exist yet
+  // (migration may not have run on first deploy).
+  let totalWinners = 0;
+  try {
+    const winnerCount = await sql`
+      SELECT COUNT(*)::int AS total_winners
+      FROM piluck_tickets
+      WHERE is_winner = true
+    `;
+    const winnerRow = winnerCount.rows[0] ?? {};
+    totalWinners = Number(winnerRow.total_winners ?? 0);
+  } catch {
+    // Column doesn't exist yet — fall back to 0
+    totalWinners = 0;
+  }
 
   const row = totals.rows[0] ?? {};
-  const winnerRow = winnerCount.rows[0] ?? {};
 
   return {
     totalEntries: Number(row.total_entries ?? 0),
     totalPoolPi: Number(row.total_pool_pi ?? 0),
     totalTreasuryPi: Number(row.total_treasury_pi ?? 0),
     roundsCount: Number(row.rounds_count ?? 0),
-    totalWinners: Number(winnerRow.total_winners ?? 0),
+    totalWinners,
   };
 }
 
@@ -615,42 +637,48 @@ export async function recordPaymentCompletion(params: {
 export async function getPastWinners(limit = 20) {
   await ensureSchema();
 
-  const rounds = await sql`
-    SELECT
-      r.round_number,
-      r.status,
-      r.total_pool_pi,
-      r.treasury_pi,
-      r.total_base_entries,
-      r.total_credit_entries,
-      r.closed_at,
-      t.wallet_key,
-      t.ticket_type,
-      t.payment_id,
-      t.amount_pi,
-      u.username
-    FROM piluck_rounds r
-    JOIN piluck_tickets t ON t.round_number = r.round_number
-    JOIN piluck_users u ON u.wallet_key = t.wallet_key
-    WHERE r.status IN ('closed', 'refunded')
-      AND t.is_winner = true
-    ORDER BY r.round_number DESC, t.created_at ASC
-    LIMIT ${limit}
-  `;
+  // Wrapped in try/catch in case the is_winner column doesn't exist yet
+  try {
+    const rounds = await sql`
+      SELECT
+        r.round_number,
+        r.status,
+        r.total_pool_pi,
+        r.treasury_pi,
+        r.total_base_entries,
+        r.total_credit_entries,
+        r.closed_at,
+        t.wallet_key,
+        t.ticket_type,
+        t.payment_id,
+        t.amount_pi,
+        u.username
+      FROM piluck_rounds r
+      JOIN piluck_tickets t ON t.round_number = r.round_number
+      JOIN piluck_users u ON u.wallet_key = t.wallet_key
+      WHERE r.status IN ('closed', 'refunded')
+        AND t.is_winner = true
+      ORDER BY r.round_number DESC, t.created_at ASC
+      LIMIT ${limit}
+    `;
 
-  return rounds.rows.map((row) => ({
-    roundNumber: Number(row.round_number),
-    status: String(row.status),
-    totalPoolPi: Number(row.total_pool_pi),
-    treasuryPi: Number(row.treasury_pi),
-    totalBaseEntries: Number(row.total_base_entries),
-    totalCreditEntries: Number(row.total_credit_entries),
-    closedAt: row.closed_at ? new Date(String(row.closed_at)).toISOString() : null,
-    winnerUsername: String(row.username),
-    ticketType: String(row.ticket_type),
-    paymentId: String(row.payment_id),
-    amountPi: Number(row.amount_pi),
-  }));
+    return rounds.rows.map((row) => ({
+      roundNumber: Number(row.round_number),
+      status: String(row.status),
+      totalPoolPi: Number(row.total_pool_pi),
+      treasuryPi: Number(row.treasury_pi),
+      totalBaseEntries: Number(row.total_base_entries),
+      totalCreditEntries: Number(row.total_credit_entries),
+      closedAt: row.closed_at ? new Date(String(row.closed_at)).toISOString() : null,
+      winnerUsername: String(row.username),
+      ticketType: String(row.ticket_type),
+      paymentId: String(row.payment_id),
+      amountPi: Number(row.amount_pi),
+    }));
+  } catch {
+    // Column doesn't exist yet — return empty array
+    return [];
+  }
 }
 
 export async function closeCurrentRoundAndSelectWinners() {
